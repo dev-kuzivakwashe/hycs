@@ -4,7 +4,7 @@ import { useLikeableStore, wrapPage } from "@/lib/likeable-store";
 export const Route = createFileRoute("/output")({
   head: () => ({
     meta: [
-      { title: "Output — Likeable" },
+      { title: "Output - HYCS" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -22,9 +22,9 @@ function Output() {
         <div>
           <h1 className="text-xl font-bold mb-2">No site generated yet</h1>
           <p className="text-muted-foreground text-sm mb-4">
-            Head back to Likeable and describe a website to build.
+            Head back to HYCS and describe a website to build.
           </p>
-          <a href="/" className="text-sm underline">Go to Likeable</a>
+          <a href="/" className="text-sm underline">Go to HYCS</a>
         </div>
       </div>
     );
@@ -32,7 +32,7 @@ function Output() {
 
   return (
     <iframe
-      title="Likeable output"
+      title="HYCS output"
       srcDoc={wrapPage(project, slug)}
       sandbox="allow-scripts allow-forms allow-popups"
       className="fixed inset-0 w-screen h-screen border-0 bg-white"
