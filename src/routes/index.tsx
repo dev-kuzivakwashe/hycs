@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useRef, useEffect } from "react";
 import {
-  ArrowUp, Download, Rocket, Code2, Eye, Sparkles, Plus, MessageSquare,
+  ArrowUp, Download, Rocket, Code2, Eye, Plus, MessageSquare,
   ExternalLink, Settings, FilePlus2, FileText, MoreVertical, Image as ImageIcon,
   Wand2, Maximize2, Minimize2, Copy, X, Github, LogIn,
 } from "lucide-react";
@@ -14,10 +14,17 @@ import css from "highlight.js/lib/languages/css";
 import javascript from "highlight.js/lib/languages/javascript";
 import { Logo } from "@/components/logo";
 import { AuthModal } from "@/components/auth-modal";
+import { AnimatedTitle } from "@/components/animated-title";
+import { Markdown } from "@/components/markdown";
+import { useTypewriter } from "@/lib/typewriter";
 import { generateSite } from "@/lib/likeable.functions";
 import { analyzeImage, refinePrompt } from "@/lib/likeable-helpers.functions";
 import { planRequest, planToFinalSpec, type Plan } from "@/lib/likeable-planner.functions";
-import { useLikeableStore, wrapPage, useSavedProjects, archiveCurrentProject, loadSavedProject, deleteSavedProject, type Message, type Project } from "@/lib/likeable-store";
+import { fetchProjectImage } from "@/lib/fetch-image.functions";
+import {
+  useLikeableStore, wrapPage, useSavedProjects, archiveCurrentProject,
+  loadSavedProject, deleteSavedProject, type Message, type Project, type SavedProjectMeta,
+} from "@/lib/likeable-store";
 import { useSettings } from "@/lib/likeable-settings";
 import { useAuth } from "@/lib/use-auth";
 import { PlanCard } from "@/components/plan-card";
@@ -30,18 +37,38 @@ hljs.registerLanguage("javascript", javascript);
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Likeable — Build websites by chatting with AI" },
-      { name: "description", content: "Likeable is an AI multi-page website builder. Describe what you want, get a full Bootstrap site instantly." },
+      { title: "HYCS - Build websites by chatting with AI" },
+      { name: "description", content: "HYCS is a free, no-framework AI website builder. Describe what you want, get a complete vanilla-JS site instantly." },
     ],
   }),
   component: Index,
 });
 
-const STARTER_PROMPTS = [
-  "A landing page for my coffee shop",
+const STARTER_PROMPTS: { label: string; prompt: string }[] = [
+  {
+    label: "A landing page for my coffee shop",
+    prompt: "Build a landing page for my coffee shop. Use a warm brown and cream UI, include ten mouth-watering coffee photos, opening hours, a featured menu of four signature drinks, and a contact form for catering enquiries.",
+  },
+  {
+    label: "A portfolio site for a photographer",
+    prompt: "Build a portfolio site for a wedding photographer. Use a minimal black and white aesthetic with large image galleries, an about page with a story, a pricing section with three packages, and a bookings contact form.",
+  },
+  {
+    label: "A SaaS pricing page with 3 tiers",
+    prompt: "Build a SaaS pricing page with three clearly compared tiers (Starter, Pro, Business), a feature matrix, an FAQ section, customer logos, and a final call-to-action banner. Use a modern blue and white tech aesthetic.",
+  },
+  {
+    label: "A modern blog homepage",
+    prompt: "Build a modern blog homepage with a magazine-style hero, a featured post, a grid of recent articles with category badges, an author spotlight, and a newsletter signup form. Use clean serif headings and generous whitespace.",
+  },
+];
+
+const TYPEWRITER_PHRASES = [
+  "Build a landing page for my coffee shop",
   "A portfolio site for a photographer",
   "A SaaS pricing page with 3 tiers",
-  "A modern blog homepage",
+  "A modern blog homepage with a newsletter signup",
+  "An online resume for a software engineer",
 ];
 
 function slugify(s: string) {
@@ -79,6 +106,7 @@ function Index() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLElement>(null);
+  const typedPlaceholder = useTypewriter(TYPEWRITER_PHRASES);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -86,7 +114,6 @@ function Index() {
 
   useEffect(() => { if (!hasAnyPage) setActionMode("edit"); }, [hasAnyPage]);
 
-  // ESC to exit fullscreen
   useEffect(() => {
     if (!fullscreen) return;
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); };
@@ -94,7 +121,6 @@ function Index() {
     return () => window.removeEventListener("keydown", h);
   }, [fullscreen]);
 
-  // Close mini-menu on outside click
   useEffect(() => {
     if (!menuOpen) return;
     const h = () => setMenuOpen(false);
@@ -102,7 +128,6 @@ function Index() {
     return () => window.removeEventListener("click", h);
   }, [menuOpen]);
 
-  // Syntax highlight when code view opens or content changes
   useEffect(() => {
     if (view === "code" && codeRef.current) {
       codeRef.current.removeAttribute("data-highlighted");
@@ -141,9 +166,10 @@ function Index() {
       });
       update((p) => ({
         ...p,
+        initialTitle: p.initialTitle || res.plan.name,
         messages: [...p.messages, {
           role: "assistant",
-          content: `📋 Plan ready: **${res.plan.name}** — review and approve to build.`,
+          content: `Plan ready: **${res.plan.name}**. Review and approve to build.`,
           plan: res.plan,
           planStatus: "pending",
           originalPrompt: text,
@@ -158,7 +184,6 @@ function Index() {
     }
   }
 
-  /** Mark a plan message approved and run the Developer Agent with the final spec. */
   async function approvePlan(messageIndex: number, finalPlan: Plan) {
     const msg = messages[messageIndex];
     if (!msg?.originalPrompt) return;
@@ -179,7 +204,6 @@ function Index() {
     }));
   }
 
-  /** Runs the Developer Agent. If finalSpec is given, it is appended as the source-of-truth instruction. */
   async function runDeveloper(originalPrompt: string, finalSpec: string | null, mode: "first" | "new-page" | "edit") {
     setLoading(true);
     try {
@@ -200,6 +224,8 @@ function Index() {
           model: settings.model,
           customEndpoint: settings.model === "custom" ? settings.customEndpoint : undefined,
           userImageDataUrl: pendingUserImage || undefined,
+          pexelsEnabled: settings.pexelsEnabled,
+          pixabayEnabled: settings.pixabayEnabled,
         },
       });
 
@@ -218,6 +244,7 @@ function Index() {
       update((p): Project => ({
         ...p,
         brand: res.brand || p.brand || (mode === "first" ? "My Site" : p.brand),
+        initialTitle: p.initialTitle || res.title || res.brand || "",
         pages: { ...p.pages, [slug]: { filename, title, content: res.pageHtml! } },
         shared: {
           headerHtml: res.headerHtml ?? p.shared.headerHtml,
@@ -260,14 +287,14 @@ function Index() {
     setPendingUserImage(dataUrl);
     update((p) => ({ ...p, userImages: [dataUrl, ...p.userImages.filter((u) => u !== dataUrl)].slice(0, 5) }));
     setImageModal(null);
-    toast.success("Image attached — describe your site and it'll be used as the hero.");
+    toast.success("Image attached. Describe your site and it will be used as the hero.");
   }
 
   async function analyzeStyle() {
     if (!imageModal) return;
     const url = imageModal.dataUrl;
     setImageModal(null);
-    const id = toast.loading("Analyzing image…");
+    const id = toast.loading("Analyzing image...");
     try {
       const r = await analyze({ data: { dataUrl: url } });
       toast.dismiss(id);
@@ -286,7 +313,7 @@ function Index() {
   async function doRefine() {
     if (!input.trim()) { toast.info("Type something first."); return; }
     setMenuOpen(false);
-    const id = toast.loading("Refining…");
+    const id = toast.loading("Refining...");
     try {
       const r = await refine({ data: { prompt: input } });
       setInput(r.refined);
@@ -315,7 +342,7 @@ function Index() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${slugify(project.brand || "likeable-site")}.zip`;
+    a.download = `${slugify(project.brand || "hycs-site")}.zip`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Downloaded site as zip");
@@ -325,26 +352,8 @@ function Index() {
     if (!hasAnyPage) return;
     toast.loading("Deploying to Netlify...", { id: "deploy" });
     setTimeout(() => {
-      toast.success("Deployed! likeable-site-" + Math.random().toString(36).slice(2, 7) + ".netlify.app", { id: "deploy", duration: 5000 });
+      toast.success("Deployed! hycs-site-" + Math.random().toString(36).slice(2, 7) + ".netlify.app", { id: "deploy", duration: 5000 });
     }, 1800);
-  }
-
-  function deployGitHub() {
-    if (!hasAnyPage) return;
-    if (!user) { toast.info("Sign in to deploy to GitHub."); setAuthOpen(true); return; }
-    if (!settings.githubToken) { toast.info("Connect GitHub in Settings first."); return; }
-    const repoName = window.prompt("Repository name", `likeable-${project.projectId.slice(0, 8)}`);
-    if (!repoName) return;
-    const files: Record<string, string> = {
-      "shared/header.html": project.shared.headerHtml || "",
-      "shared/footer.html": project.shared.footerHtml || "",
-      "shared/theme.css": project.shared.themeCss || "",
-    };
-    for (const slug of pageSlugs) files[slug === "home" ? "index.html" : `${slug}.html`] = wrapPage(project, slug);
-    toast.loading("Deploying to GitHub…", { id: "gh" });
-    // Mock — real call would hit /api/deploy/github
-    console.log("[Likeable] Deploying to GitHub", { repoName, fileCount: Object.keys(files).length, token: settings.githubToken.slice(0, 6) + "…" });
-    setTimeout(() => toast.success(`Mock-deployed to github.com/you/${repoName}`, { id: "gh", duration: 5000 }), 1500);
   }
 
   async function copyCode() {
@@ -360,7 +369,7 @@ function Index() {
         <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
         <div className="absolute inset-x-0 bottom-0 h-[55vh] glow-bg pointer-events-none" />
         <header className="relative z-10 flex items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-2"><Logo className="w-7 h-7" /><span className="text-xl font-bold">Likeable</span></div>
+          <div className="flex items-center gap-2"><Logo className="w-7 h-7" /><span className="text-xl font-bold">HYCS</span></div>
           <div className="flex items-center gap-2">
             {!user && (
               <button onClick={() => setAuthOpen(true)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border hover:bg-accent">
@@ -372,12 +381,9 @@ function Index() {
         </header>
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-5 pb-20">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border mb-8">
-            <span className="text-sm">Multi-page sites, one at a time</span>
-            <Sparkles className="w-3.5 h-3.5" />
+            <span className="text-sm">Building multi-page sites, one at a time</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-center mb-2">
-            What do you want to <span className="brand-text">build</span>?
-          </h1>
+          <AnimatedTitle />
           <p className="text-muted-foreground text-center mb-8 text-sm">
             Describe a site. Add more pages by chatting. Export as a ready-to-host zip.
           </p>
@@ -385,7 +391,8 @@ function Index() {
             <textarea
               value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
-              placeholder="Ask Likeable to build a home page for..." rows={2}
+              placeholder={input ? "" : `${typedPlaceholder}|`}
+              rows={2}
               className="w-full bg-transparent outline-none resize-none px-3 py-2 text-base placeholder:text-muted-foreground"
             />
             <div className="flex items-center justify-between mt-2">
@@ -400,7 +407,13 @@ function Index() {
           <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
           <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-2xl">
             {STARTER_PROMPTS.map((p) => (
-              <button key={p} onClick={() => send(p)} className="text-xs px-3 py-1.5 rounded-full border bg-card/50 hover:bg-accent">{p}</button>
+              <button
+                key={p.label}
+                onClick={() => setInput(p.prompt)}
+                className="text-xs px-3 py-1.5 rounded-full border bg-card/50 hover:bg-accent transition-colors"
+              >
+                {p.label}
+              </button>
             ))}
           </div>
           {savedProjects.length > 0 && (
@@ -411,7 +424,14 @@ function Index() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {savedProjects.map((proj) => (
-                  <ProjectCard key={proj.projectId} proj={proj} onOpen={() => loadSavedProject(proj.projectId)} onDelete={() => deleteSavedProject(proj.projectId)} />
+                  <ProjectCard
+                    key={proj.projectId}
+                    proj={proj}
+                    onOpen={() => loadSavedProject(proj.projectId)}
+                    onDelete={() => deleteSavedProject(proj.projectId)}
+                    pexelsEnabled={settings.pexelsEnabled}
+                    pixabayEnabled={settings.pixabayEnabled}
+                  />
                 ))}
               </div>
             </div>
@@ -467,7 +487,9 @@ function Index() {
           if (m.plan) {
             return (
               <div key={i} className="space-y-2">
-                <div className="text-xs text-muted-foreground">{m.content}</div>
+                <div className="text-xs text-muted-foreground">
+                  <Markdown className="prose-hycs-compact">{m.content}</Markdown>
+                </div>
                 <PlanCard
                   plan={m.plan}
                   status={m.planStatus ?? "pending"}
@@ -480,7 +502,7 @@ function Index() {
           return (
             <div key={i} className={m.role === "user" ? "flex justify-end" : ""}>
               <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm ${m.role === "user" ? "brand-bg text-white" : "bg-card border"}`}>
-                {m.content}
+                <Markdown className="prose-hycs-compact">{m.content}</Markdown>
                 {m.slug && (<div className="mt-1.5 text-xs opacity-70 flex items-center gap-1"><Code2 className="w-3 h-3" /> {m.slug}.html updated</div>)}
               </div>
             </div>
@@ -489,8 +511,8 @@ function Index() {
         {loading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-bounce" />
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-bounce [animation-delay:0.15s]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-bounce" />
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-bounce [animation-delay:0.15s]" />
               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:0.3s]" />
             </div>
             Generating...
@@ -602,7 +624,7 @@ function Index() {
           <div className="h-full flex items-center justify-center text-muted-foreground text-sm p-8 text-center">Your website preview will appear here.</div>
         ) : view === "preview" ? (
           <iframe key={currentSlug} title="Preview" srcDoc={previewHtml} sandbox="allow-scripts allow-forms allow-popups"
-            className={fullscreen ? "likeable-fullscreen border-0" : "w-full h-full border-0 bg-white"} />
+            className={fullscreen ? "hycs-fullscreen border-0" : "w-full h-full border-0 bg-white"} />
         ) : (
           <pre className="w-full h-full overflow-auto p-4 text-xs font-mono bg-card m-0">
             <code ref={codeRef} className="language-xml">{previewHtml}</code>
@@ -620,14 +642,14 @@ function Index() {
       {imageModalNode()}
       {analysisModalNode()}
       {fullscreen && (
-        <button onClick={() => setFullscreen(false)} className="likeable-fullscreen-exit" aria-label="Exit fullscreen">
+        <button onClick={() => setFullscreen(false)} className="hycs-fullscreen-exit" aria-label="Exit fullscreen">
           <Minimize2 className="w-5 h-5" />
         </button>
       )}
       <header className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-        <button onClick={() => { archiveCurrentProject(); }} className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity" title="Save & start a new project">
+        <button onClick={() => { archiveCurrentProject(); }} className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity" title="Save and start a new project">
           <Logo className="w-6 h-6 shrink-0" />
-          <span className="font-bold">Likeable</span>
+          <span className="font-bold">HYCS</span>
           {project.brand && (
             <span className="text-xs text-muted-foreground truncate hidden sm:inline">
               · {project.brand} · {pageSlugs.length} page{pageSlugs.length === 1 ? "" : "s"}
@@ -638,11 +660,13 @@ function Index() {
           <button onClick={exportZip} disabled={!hasAnyPage} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border hover:bg-accent disabled:opacity-40">
             <Download className="w-3.5 h-3.5" /> Export
           </button>
-          {user && (
-            <button onClick={deployGitHub} disabled={!hasAnyPage} className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border hover:bg-accent disabled:opacity-40">
-              <Github className="w-3.5 h-3.5" /> GitHub
-            </button>
-          )}
+          <button
+            disabled
+            title="GitHub deploy coming soon"
+            className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border opacity-40 cursor-not-allowed"
+          >
+            <Github className="w-3.5 h-3.5" /> GitHub
+          </button>
           <button onClick={deployNetlify} disabled={!hasAnyPage} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg brand-bg text-white disabled:opacity-40">
             <Rocket className="w-3.5 h-3.5" /> Deploy
           </button>
@@ -658,10 +682,10 @@ function Index() {
       </header>
 
       <div className="lg:hidden flex border-b shrink-0">
-        <button onClick={() => setMobileTab("chat")} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm ${mobileTab === "chat" ? "border-b-2 border-pink-500 text-foreground" : "text-muted-foreground"}`}>
+        <button onClick={() => setMobileTab("chat")} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm ${mobileTab === "chat" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground"}`}>
           <MessageSquare className="w-4 h-4" /> Chat
         </button>
-        <button onClick={() => setMobileTab("preview")} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm ${mobileTab === "preview" ? "border-b-2 border-pink-500 text-foreground" : "text-muted-foreground"}`}>
+        <button onClick={() => setMobileTab("preview")} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm ${mobileTab === "preview" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground"}`}>
           <Eye className="w-4 h-4" /> Preview
         </button>
       </div>
@@ -680,59 +704,92 @@ const UNIVERSAL_PROJECT_IMAGE =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice">
       <defs>
         <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#ec4899"/>
-          <stop offset="50%" stop-color="#a855f7"/>
-          <stop offset="100%" stop-color="#3b82f6"/>
+          <stop offset="0%" stop-color="#ef4444"/>
+          <stop offset="40%" stop-color="#f59e0b"/>
+          <stop offset="80%" stop-color="#3b82f6"/>
+          <stop offset="100%" stop-color="#facc15"/>
         </linearGradient>
-        <radialGradient id="s" cx="0.8" cy="0.2" r="0.6">
-          <stop offset="0%" stop-color="white" stop-opacity="0.35"/>
-          <stop offset="100%" stop-color="white" stop-opacity="0"/>
-        </radialGradient>
       </defs>
       <rect width="400" height="240" fill="url(#g)"/>
-      <rect width="400" height="240" fill="url(#s)"/>
-      <g transform="translate(200 120)" fill="white" fill-opacity="0.95">
-        <path d="M0,-40 C18,-40 30,-26 30,-10 C30,8 18,20 0,32 C-18,20 -30,8 -30,-10 C-30,-26 -18,-40 0,-40 Z"/>
-      </g>
-      <g fill="white" fill-opacity="0.9" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="700">
-        <text x="20" y="220" font-size="14">Likeable project</text>
+      <g fill="white" fill-opacity="0.95" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="700">
+        <text x="20" y="220" font-size="14">HYCS project</text>
       </g>
     </svg>`,
   );
 
-function formatRelative(ts: number) {
+function formatLastUpdate(ts: number) {
   const diff = Date.now() - ts;
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d}d ago`;
-  return new Date(ts).toLocaleDateString();
+  if (m < 1) return "Just now";
+  const d = new Date(ts);
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (sameDay) return `Today, ${time}`;
+  const date = d.toLocaleDateString([], { month: "short", day: "numeric" });
+  return `${date}, ${time}`;
+}
+
+const imageCache = new Map<string, string | null>();
+
+function useProjectImage(meta: SavedProjectMeta, pexelsEnabled: boolean, pixabayEnabled: boolean) {
+  const [url, setUrl] = useState<string | null>(() => imageCache.get(meta.projectId) ?? null);
+  const fetchImg = useServerFn(fetchProjectImage);
+
+  useEffect(() => {
+    if (imageCache.has(meta.projectId)) return;
+    if (!pexelsEnabled && !pixabayEnabled) {
+      imageCache.set(meta.projectId, null);
+      return;
+    }
+    const query = (meta.initialTitle || meta.description || meta.brand || "website").slice(0, 80);
+    let cancelled = false;
+    fetchImg({ data: { query, pexelsEnabled, pixabayEnabled } })
+      .then((r) => {
+        if (cancelled) return;
+        imageCache.set(meta.projectId, r.url);
+        setUrl(r.url);
+      })
+      .catch(() => { imageCache.set(meta.projectId, null); });
+    return () => { cancelled = true; };
+  }, [meta.projectId, meta.initialTitle, meta.description, meta.brand, pexelsEnabled, pixabayEnabled, fetchImg]);
+
+  return url;
 }
 
 function ProjectCard({
-  proj,
-  onOpen,
-  onDelete,
+  proj, onOpen, onDelete, pexelsEnabled, pixabayEnabled,
 }: {
-  proj: { projectId: string; brand: string; description: string; pageCount: number; updatedAt: number };
+  proj: SavedProjectMeta;
   onOpen: () => void;
   onDelete: () => void;
+  pexelsEnabled: boolean;
+  pixabayEnabled: boolean;
 }) {
+  const fetchedUrl = useProjectImage(proj, pexelsEnabled, pixabayEnabled);
+  const cover = fetchedUrl || UNIVERSAL_PROJECT_IMAGE;
+  const messageLabel = proj.messageCount > 0 ? `${proj.messageCount} message${proj.messageCount === 1 ? "" : "s"}` : "Just now";
+
   return (
-    <div className="group relative bg-card border rounded-2xl overflow-hidden hover:border-pink-500/50 transition-colors text-left">
+    <div className="group relative bg-card border rounded-2xl overflow-hidden hover:border-primary/50 transition-colors text-left">
       <button onClick={onOpen} className="block w-full text-left">
         <div className="aspect-[5/3] overflow-hidden bg-muted">
-          <img src={UNIVERSAL_PROJECT_IMAGE} alt="" className="w-full h-full object-cover" />
+          <img
+            src={cover}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = UNIVERSAL_PROJECT_IMAGE; }}
+          />
         </div>
         <div className="p-3">
-          <div className="font-semibold text-sm truncate">{proj.brand}</div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {formatLastUpdate(proj.updatedAt)}
+          </div>
+          <div className="font-semibold text-sm truncate mt-0.5">{proj.initialTitle || proj.brand || "Untitled"}</div>
           <p className="text-xs text-muted-foreground line-clamp-2 mt-1 min-h-[2rem]">{proj.description}</p>
           <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground uppercase tracking-wide">
             <span>{proj.pageCount} page{proj.pageCount === 1 ? "" : "s"}</span>
-            <span>{formatRelative(proj.updatedAt)}</span>
+            <span>{messageLabel}</span>
           </div>
         </div>
       </button>
