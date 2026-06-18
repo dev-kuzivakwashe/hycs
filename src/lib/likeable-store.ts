@@ -19,6 +19,8 @@ export type Page = { filename: string; title: string; content: string };
 export type Project = {
   projectId: string;
   brand: string;
+  /** First title the planner assigned to this project, displayed on saved cards. */
+  initialTitle?: string;
   pages: Record<string, Page>;
   shared: { headerHtml: string; footerHtml: string; themeCss: string };
   currentPage: string;
@@ -26,10 +28,10 @@ export type Project = {
   userImages: string[]; // data URLs, max 5, newest first
 };
 
-const KEY = "likeable:project:v2";
-const LIST_KEY = "likeable:projects:v1";
-const EVENT = "likeable:state-change";
-const LIST_EVENT = "likeable:list-change";
+const KEY = "hycs:project:v2";
+const LIST_KEY = "hycs:projects:v1";
+const EVENT = "hycs:state-change";
+const LIST_EVENT = "hycs:list-change";
 
 function uuid() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -40,6 +42,7 @@ function emptyProject(): Project {
   return {
     projectId: uuid(),
     brand: "",
+    initialTitle: "",
     pages: {},
     shared: { headerHtml: "", footerHtml: "", themeCss: "" },
     currentPage: "home",
@@ -58,6 +61,7 @@ function read(): Project {
     if (!p.shared) p.shared = { headerHtml: "", footerHtml: "", themeCss: "" };
     if (!p.messages) p.messages = [];
     if (!p.userImages) p.userImages = [];
+    if (!p.initialTitle) p.initialTitle = "";
     return p;
   } catch {
     return emptyProject();
@@ -72,8 +76,12 @@ function write(p: Project) {
 export type SavedProjectMeta = {
   projectId: string;
   brand: string;
+  /** Planner-assigned title (e.g. "Modern Blog Homepage"). */
+  initialTitle: string;
+  /** First user prompt (truncated). */
   description: string;
   pageCount: number;
+  messageCount: number;
   updatedAt: number;
 };
 
@@ -92,7 +100,7 @@ function writeList(list: SavedProjectMeta[]) {
   window.dispatchEvent(new CustomEvent(LIST_EVENT));
 }
 
-function snapshotKey(id: string) { return `likeable:project:snapshot:${id}`; }
+function snapshotKey(id: string) { return `hycs:project:snapshot:${id}`; }
 
 function projectIsEmpty(p: Project) {
   return Object.keys(p.pages).length === 0 && p.messages.length === 0;
@@ -106,13 +114,24 @@ function deriveDescription(p: Project): string {
   return "Untitled project";
 }
 
+function deriveInitialTitle(p: Project): string {
+  if (p.initialTitle) return p.initialTitle;
+  const firstPlan = p.messages.find((m) => m.plan);
+  if (firstPlan?.plan?.name) return firstPlan.plan.name;
+  const slug = Object.keys(p.pages)[0];
+  if (slug) return p.pages[slug].title;
+  return "Untitled";
+}
+
 function archiveSnapshot(p: Project) {
   localStorage.setItem(snapshotKey(p.projectId), JSON.stringify(p));
   const meta: SavedProjectMeta = {
     projectId: p.projectId,
     brand: p.brand || "Untitled",
+    initialTitle: deriveInitialTitle(p),
     description: deriveDescription(p),
     pageCount: Object.keys(p.pages).length,
+    messageCount: p.messages.length,
     updatedAt: Date.now(),
   };
   const list = readList().filter((x) => x.projectId !== p.projectId);
@@ -181,9 +200,8 @@ export function useLikeableStore() {
   };
 }
 
-/** Wrap a page's body content into a full standalone HTML document with
- *  Bootstrap, theme, header/footer placeholders, and a tiny SPA router that
- *  loads sibling pages from an inlined project snapshot. */
+/** Wrap a page's body content into a full standalone HTML document — NO framework,
+ *  just minimal base CSS and a tiny vanilla SPA router for sibling pages. */
 export function wrapPage(project: Project, slug: string): string {
   const page = project.pages[slug];
   if (!page) {
@@ -203,42 +221,49 @@ export function wrapPage(project: Project, slug: string): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${escapeHtml(page.title)} — ${escapeHtml(project.brand || "Likeable")}</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+<title>${escapeHtml(page.title)} - ${escapeHtml(project.brand || "HYCS")}</title>
 <style>
-@keyframes likeableFadeSlideUp { 0% { opacity: 0; transform: translateY(12px); } 100% { opacity: 1; transform: translateY(0); } }
-.likeable-page-wrapper { animation: likeableFadeSlideUp 0.4s ease-out; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;color:#1a1a1a;background:#fff}
+img,video{max-width:100%;height:auto;display:block;object-fit:cover}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:none;background:none}
+input,textarea,select{font:inherit}
+@keyframes hycsFadeSlideUp { 0% { opacity: 0; transform: translateY(12px); } 100% { opacity: 1; transform: translateY(0); } }
+.hycs-page-wrapper { animation: hycsFadeSlideUp 0.4s ease-out; min-height:100vh; display:flex; flex-direction:column; }
+.hycs-page-wrapper > main { flex: 1; }
 ${project.shared.themeCss || ""}
 </style>
 </head>
 <body>
-<div id="likeable-header-placeholder"></div>
-<main id="likeable-main"><div class="likeable-page-wrapper">${page.content}</div></main>
-<div id="likeable-footer-placeholder"></div>
-<script>window.__LIKEABLE__ = ${json};</script>
+<div class="hycs-page-wrapper">
+<div id="hycs-header-placeholder"></div>
+<main id="hycs-main">${page.content}</main>
+<div id="hycs-footer-placeholder"></div>
+</div>
+<script>window.__HYCS__ = ${json};</script>
 <script>
 (function(){
-  var P = window.__LIKEABLE__;
+  var P = window.__HYCS__;
   function getThemePlaceholder(w, h){
     var primary = '';
     try { primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(); } catch(_){}
-    if (!primary) primary = '#cccccc';
-    if (/^\\d/.test(primary) && primary.indexOf('%') !== -1 && primary.indexOf('(') === -1) primary = 'hsl(' + primary + ')';
+    if (!primary) primary = '#3b82f6';
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + (w||200) + '" height="' + (h||150) + '" viewBox="0 0 100 100" preserveAspectRatio="none">'
       + '<rect width="100" height="100" fill="' + primary + '" opacity="0.18"/>'
       + '<rect x="20" y="25" width="60" height="50" rx="6" fill="' + primary + '" opacity="0.45"/>'
       + '<circle cx="38" cy="42" r="5" fill="' + primary + '" opacity="0.9"/>'
       + '<path d="M25 70 L45 50 L60 65 L72 55 L80 70 Z" fill="' + primary + '" opacity="0.9"/>'
-      + '<text x="50" y="92" font-size="8" text-anchor="middle" fill="' + primary + '" font-family="sans-serif" opacity="0.8">Image</text>'
       + '</svg>';
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   }
   function attachFallback(img){
-    if (img.__lkFb) return;
-    img.__lkFb = true;
+    if (img.__hyFb) return;
+    img.__hyFb = true;
     img.addEventListener('error', function(){
-      if (img.__lkPh) return;
-      img.__lkPh = true;
+      if (img.__hyPh) return;
+      img.__hyPh = true;
       var w = img.getAttribute('width') || img.naturalWidth || 200;
       var h = img.getAttribute('height') || img.naturalHeight || 150;
       img.src = getThemePlaceholder(parseInt(w,10)||200, parseInt(h,10)||150);
@@ -260,9 +285,9 @@ ${project.shared.themeCss || ""}
   mo.observe(document.documentElement, { childList: true, subtree: true });
   function render(slug){
     var page = P.pages[slug] || P.pages[P.currentSlug];
-    document.getElementById('likeable-header-placeholder').innerHTML = P.headerHtml || '';
-    document.getElementById('likeable-main').innerHTML = page ? '<div class="likeable-page-wrapper">' + page.content + '</div>' : '<div class="container py-5"><h1>Page not found</h1></div>';
-    document.getElementById('likeable-footer-placeholder').innerHTML = P.footerHtml || '';
+    document.getElementById('hycs-header-placeholder').innerHTML = P.headerHtml || '';
+    document.getElementById('hycs-main').innerHTML = page ? page.content : '<div style="padding:4rem;text-align:center"><h1>Page not found</h1></div>';
+    document.getElementById('hycs-footer-placeholder').innerHTML = P.footerHtml || '';
     if (page) document.title = page.title;
     document.querySelectorAll('a').forEach(function(a){
       var href = a.getAttribute('href') || '';
@@ -278,32 +303,32 @@ ${project.shared.themeCss || ""}
     return P.pages[p] ? p : null;
   }
   function showExternalLinkModal(url){
-    var existing = document.getElementById('likeable-ext-modal');
+    var existing = document.getElementById('hycs-ext-modal');
     if (existing) existing.remove();
     var primary = '';
     try { primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(); } catch(_){}
-    if (!primary) primary = '#c065ff';
+    if (!primary) primary = '#3b82f6';
     var safeUrl = String(url).replace(/[<>"]/g,'');
     var host = '';
     try { host = new URL(url).hostname; } catch(_) { host = safeUrl; }
     var wrap = document.createElement('div');
-    wrap.id = 'likeable-ext-modal';
-    wrap.setAttribute('style','position:fixed;inset:0;z-index:2147483647;background:rgba(10,8,20,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:1rem;font-family:system-ui,-apple-system,Segoe UI,sans-serif;animation:lkExtFade .18s ease-out;');
-    wrap.innerHTML = '<style>@keyframes lkExtFade{from{opacity:0}to{opacity:1}}@keyframes lkExtPop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}</style>'
-      + '<div style="background:#1a1525;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:18px;max-width:420px;width:100%;padding:1.5rem;box-shadow:0 30px 80px -10px rgba(0,0,0,.6);animation:lkExtPop .22s ease-out">'
+    wrap.id = 'hycs-ext-modal';
+    wrap.setAttribute('style','position:fixed;inset:0;z-index:2147483647;background:rgba(10,8,20,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:1rem;font-family:system-ui,-apple-system,Segoe UI,sans-serif;animation:hyExtFade .18s ease-out;');
+    wrap.innerHTML = '<style>@keyframes hyExtFade{from{opacity:0}to{opacity:1}}@keyframes hyExtPop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}</style>'
+      + '<div style="background:#1a1525;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:18px;max-width:420px;width:100%;padding:1.5rem;box-shadow:0 30px 80px -10px rgba(0,0,0,.6);animation:hyExtPop .22s ease-out">'
       + '<div style="width:42px;height:42px;border-radius:12px;background:' + primary + ';display:flex;align-items:center;justify-content:center;margin-bottom:1rem;font-size:20px">↗</div>'
       + '<h3 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:700">Leave preview?</h3>'
-      + '<p style="margin:0 0 .25rem;font-size:.85rem;color:rgba(255,255,255,.7);line-height:1.5">This link would open <strong style="color:#fff;word-break:break-all">' + host + '</strong> outside the Likeable preview environment.</p>'
+      + '<p style="margin:0 0 .25rem;font-size:.85rem;color:rgba(255,255,255,.7);line-height:1.5">This link would open <strong style="color:#fff;word-break:break-all">' + host + '</strong> outside the HYCS preview environment.</p>'
       + '<p style="margin:0 0 1.25rem;font-size:.75rem;color:rgba(255,255,255,.45);word-break:break-all">' + safeUrl + '</p>'
       + '<div style="display:flex;gap:.5rem;justify-content:flex-end">'
-      + '<button id="lk-ext-cancel" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.18);padding:.55rem 1rem;border-radius:10px;font-size:.85rem;cursor:pointer">Cancel</button>'
-      + '<button id="lk-ext-open" style="background:' + primary + ';color:#fff;border:none;padding:.55rem 1rem;border-radius:10px;font-size:.85rem;font-weight:600;cursor:pointer">Open in new tab</button>'
+      + '<button id="hy-ext-cancel" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.18);padding:.55rem 1rem;border-radius:10px;font-size:.85rem;cursor:pointer">Cancel</button>'
+      + '<button id="hy-ext-open" style="background:' + primary + ';color:#fff;border:none;padding:.55rem 1rem;border-radius:10px;font-size:.85rem;font-weight:600;cursor:pointer">Open in new tab</button>'
       + '</div></div>';
     document.body.appendChild(wrap);
     var close = function(){ wrap.remove(); };
     wrap.addEventListener('click', function(e){ if (e.target === wrap) close(); });
-    document.getElementById('lk-ext-cancel').addEventListener('click', close);
-    document.getElementById('lk-ext-open').addEventListener('click', function(){
+    document.getElementById('hy-ext-cancel').addEventListener('click', close);
+    document.getElementById('hy-ext-open').addEventListener('click', function(){
       try { window.open(url, '_blank', 'noopener,noreferrer'); } catch(_){}
       close();
     });
@@ -321,17 +346,11 @@ ${project.shared.themeCss || ""}
       window.scrollTo(0,0);
       return;
     }
-    // External / unknown link — intercept and show confirmation, never navigate the preview
     if (href.startsWith('http') || href.startsWith('//') || href.startsWith('mailto:') || href.startsWith('tel:')) {
       e.preventDefault();
-      if (href.startsWith('mailto:') || href.startsWith('tel:')) {
-        showExternalLinkModal(href);
-      } else {
-        showExternalLinkModal(href);
-      }
+      showExternalLinkModal(href);
       return;
     }
-    // Unknown internal href (page that doesn't exist) — prevent navigation away
     e.preventDefault();
   });
   window.addEventListener('popstate', function(e){
@@ -341,7 +360,6 @@ ${project.shared.themeCss || ""}
   scanImages();
 })();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>`;
 }

@@ -28,31 +28,32 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --gradient-brand: linear-gradient(135deg, #ff6b9d 0%, #c065ff 50%, #5b8cff 100%);
-  --gradient-glow: radial-gradient(60% 50% at 50% 100%, #ff6b9d55 0%, transparent 70%);
+  /* HYCS brand: red/orange/blue/yellow from the logo */
+  --gradient-brand: linear-gradient(135deg, #ef4444 0%, #f59e0b 35%, #3b82f6 75%, #facc15 100%);
+  --gradient-glow: radial-gradient(60% 50% at 50% 100%, #3b82f655 0%, transparent 70%);
 }
 
 :root {
   --radius: 0.875rem;
-  --background: oklch(0.16 0.02 270);
+  --background: oklch(0.16 0.02 260);
   --foreground: oklch(0.98 0 0);
-  --card: oklch(0.21 0.02 270);
+  --card: oklch(0.21 0.02 260);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.21 0.02 270);
+  --popover: oklch(0.21 0.02 260);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.72 0.2 340);
-  --primary-foreground: oklch(0.15 0 0);
-  --secondary: oklch(0.26 0.02 270);
+  --primary: oklch(0.68 0.18 250);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.26 0.02 260);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.24 0.02 270);
-  --muted-foreground: oklch(0.7 0.02 270);
-  --accent: oklch(0.3 0.05 290);
+  --muted: oklch(0.24 0.02 260);
+  --muted-foreground: oklch(0.7 0.02 260);
+  --accent: oklch(0.3 0.05 250);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.6 0.25 27);
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 8%);
-  --ring: oklch(0.72 0.2 340);
+  --ring: oklch(0.68 0.18 250);
 }
 
 @layer base {
@@ -79,6 +80,17 @@
   background: var(--gradient-glow);
 }
 
+/* Flip-up entrance for rotating titles */
+@keyframes hycs-flip-in {
+  0% { transform: rotateX(-90deg); opacity: 0; }
+  100% { transform: rotateX(0deg); opacity: 1; }
+}
+.animate-flip-in { animation: hycs-flip-in 0.45s cubic-bezier(.2,.7,.2,1); transform-origin: center bottom; }
+
+/* Typewriter blinking caret */
+@keyframes hycs-caret { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+.typewriter-caret::after { content: "|"; margin-left: 1px; animation: hycs-caret 1s steps(1) infinite; color: currentColor; }
+
 /* Highlight.js github-dark, inlined minimal */
 .hljs { color: #c9d1d9; background: #0d1117; }
 .hljs-comment, .hljs-quote { color: #8b949e; }
@@ -95,33 +107,45 @@
 .hljs-params { color: #f0f6fc; }
 
 /* Fullscreen preview */
-.likeable-fullscreen { position: fixed !important; inset: 0; width: 100vw; height: 100vh; z-index: 9999; background: white; }
-.likeable-fullscreen-exit {
+.hycs-fullscreen { position: fixed !important; inset: 0; width: 100vw; height: 100vh; z-index: 9999; background: white; }
+.hycs-fullscreen-exit {
   position: fixed; bottom: 20px; right: 20px; z-index: 10000;
   width: 44px; height: 44px; border-radius: 9999px;
   background: rgba(0,0,0,0.7); color: white; display: flex; align-items: center; justify-content: center;
   border: 1px solid rgba(255,255,255,0.2); cursor: pointer;
 }
 
-/* Markdown / README prose */
-.prose-likeable { color: var(--foreground); font-size: 0.95rem; line-height: 1.7; }
-.prose-likeable h1 { font-size: 2rem; font-weight: 800; margin: 0 0 1rem; background: var(--gradient-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.prose-likeable h2 { font-size: 1.35rem; font-weight: 700; margin: 2rem 0 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border); }
-.prose-likeable h3 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
-.prose-likeable p { margin: 0 0 1rem; color: oklch(0.85 0.02 270); }
-.prose-likeable a { color: oklch(0.78 0.18 340); text-decoration: underline; text-underline-offset: 3px; }
-.prose-likeable a:hover { color: oklch(0.85 0.18 340); }
-.prose-likeable ul, .prose-likeable ol { margin: 0 0 1rem; padding-left: 1.5rem; }
-.prose-likeable ul { list-style: disc; } .prose-likeable ol { list-style: decimal; }
-.prose-likeable li { margin: 0.25rem 0; color: oklch(0.85 0.02 270); }
-.prose-likeable li::marker { color: oklch(0.72 0.2 340); }
-.prose-likeable code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: var(--muted); padding: 0.15rem 0.4rem; border-radius: 0.3rem; color: oklch(0.92 0.05 340); }
-.prose-likeable pre { background: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; overflow-x: auto; margin: 0 0 1.25rem; }
-.prose-likeable pre code { background: transparent; padding: 0; color: var(--foreground); font-size: 0.8rem; line-height: 1.55; }
-.prose-likeable blockquote { border-left: 3px solid oklch(0.72 0.2 340); padding: 0.5rem 0 0.5rem 1rem; margin: 0 0 1rem; color: var(--muted-foreground); font-style: italic; background: var(--card); border-radius: 0 0.5rem 0.5rem 0; }
-.prose-likeable table { width: 100%; border-collapse: collapse; margin: 0 0 1.25rem; font-size: 0.85rem; }
-.prose-likeable th, .prose-likeable td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
-.prose-likeable th { background: var(--card); font-weight: 600; }
-.prose-likeable hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
-.prose-likeable input[type="checkbox"] { margin-right: 0.4rem; accent-color: oklch(0.72 0.2 340); }
+/* Markdown prose, used by docs + chat */
+.prose-hycs { color: var(--foreground); font-size: 0.95rem; line-height: 1.7; }
+.prose-hycs h1 { font-size: 2rem; font-weight: 800; margin: 0 0 1rem; background: var(--gradient-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.prose-hycs h2 { font-size: 1.35rem; font-weight: 700; margin: 2rem 0 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.prose-hycs h3 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
+.prose-hycs p { margin: 0 0 1rem; color: oklch(0.85 0.02 260); }
+.prose-hycs a { color: oklch(0.78 0.16 250); text-decoration: underline; text-underline-offset: 3px; }
+.prose-hycs a:hover { color: oklch(0.85 0.16 250); }
+.prose-hycs ul, .prose-hycs ol { margin: 0 0 1rem; padding-left: 1.5rem; }
+.prose-hycs ul { list-style: disc; } .prose-hycs ol { list-style: decimal; }
+.prose-hycs li { margin: 0.25rem 0; color: oklch(0.85 0.02 260); }
+.prose-hycs li::marker { color: oklch(0.68 0.18 250); }
+.prose-hycs code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: var(--muted); padding: 0.15rem 0.4rem; border-radius: 0.3rem; color: oklch(0.92 0.05 250); }
+.prose-hycs pre { background: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; overflow-x: auto; margin: 0 0 1.25rem; }
+.prose-hycs pre code { background: transparent; padding: 0; color: var(--foreground); font-size: 0.8rem; line-height: 1.55; }
+.prose-hycs blockquote { border-left: 3px solid oklch(0.68 0.18 250); padding: 0.5rem 0 0.5rem 1rem; margin: 0 0 1rem; color: var(--muted-foreground); font-style: italic; background: var(--card); border-radius: 0 0.5rem 0.5rem 0; }
+.prose-hycs table { width: 100%; border-collapse: collapse; margin: 0 0 1.25rem; font-size: 0.85rem; }
+.prose-hycs th, .prose-hycs td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+.prose-hycs th { background: var(--card); font-weight: 600; }
+.prose-hycs hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+.prose-hycs input[type="checkbox"] { margin-right: 0.4rem; accent-color: oklch(0.68 0.18 250); }
 
+/* Compact prose for chat bubbles */
+.prose-hycs-compact { font-size: 0.875rem; line-height: 1.55; }
+.prose-hycs-compact > *:first-child { margin-top: 0; }
+.prose-hycs-compact > *:last-child { margin-bottom: 0; }
+.prose-hycs-compact p { margin: 0 0 0.5rem; }
+.prose-hycs-compact h1, .prose-hycs-compact h2, .prose-hycs-compact h3 { font-size: 1rem; margin: 0.5rem 0 0.25rem; padding-top: 0; border: none; background: none; -webkit-text-fill-color: currentColor; color: currentColor; font-weight: 700; }
+.prose-hycs-compact ul, .prose-hycs-compact ol { margin: 0 0 0.5rem; padding-left: 1.25rem; }
+.prose-hycs-compact code { font-size: 0.8em; }
+.prose-hycs-compact pre { margin: 0.25rem 0 0.5rem; padding: 0.5rem; }
+
+/* Legacy alias kept for any leftover usage */
+.prose-likeable { color: var(--foreground); font-size: 0.95rem; line-height: 1.7; }

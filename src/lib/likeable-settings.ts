@@ -9,10 +9,12 @@ export type Settings = {
   githubToken: string;
   plannerModel: string;
   plannerEnabled: boolean;
+  pexelsEnabled: boolean;
+  pixabayEnabled: boolean;
 };
 
-const KEY = "likeable:settings:v1";
-const EVENT = "likeable:settings-change";
+const KEY = "hycs:settings:v1";
+const EVENT = "hycs:settings-change";
 
 const DEFAULTS: Settings = {
   standardPrompt: "",
@@ -23,10 +25,12 @@ const DEFAULTS: Settings = {
   githubToken: "",
   plannerModel: "google/gemini-2.5-flash-lite",
   plannerEnabled: true,
+  pexelsEnabled: true,
+  pixabayEnabled: true,
 };
 
 export const PLANNER_MODEL_OPTIONS: { value: string; label: string }[] = [
-  { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (fast, cheap — default)" },
+  { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (fast, cheap, default)" },
   { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
   { value: "openai/gpt-5-nano", label: "GPT-5 Nano" },
   { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
@@ -37,13 +41,13 @@ export const MODEL_OPTIONS: { value: string; label: string }[] = [
   { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
   { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
   { value: "openai/gpt-5", label: "GPT-5" },
-  { value: "custom", label: "Custom…" },
+  { value: "custom", label: "Custom endpoint" },
 ];
 
 function read(): Settings {
   if (typeof window === "undefined") return DEFAULTS;
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) || localStorage.getItem("likeable:settings:v1");
     if (!raw) return DEFAULTS;
     return { ...DEFAULTS, ...JSON.parse(raw) };
   } catch {

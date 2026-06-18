@@ -23,7 +23,7 @@ export function PlanCard({ plan, status, onApprove, onReject }: Props) {
     return (
       <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs flex items-center gap-2">
         <Check className="w-4 h-4 text-emerald-400" />
-        <span className="font-medium">Plan approved — building "{plan.name}"</span>
+        <span className="font-medium">Plan approved, building "{plan.name}"</span>
       </div>
     );
   }
@@ -201,18 +201,6 @@ export function PlanCard({ plan, status, onApprove, onReject }: Props) {
         </details>
       )}
 
-      {/* Mock cleanup */}
-      {view.mockCleanup.length > 0 && (
-        <details className="text-xs">
-          <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            De-mock checklist ({view.mockCleanup.length})
-          </summary>
-          <ul className="mt-2 space-y-1 pl-4 list-disc text-muted-foreground">
-            {view.mockCleanup.map((s, i) => <li key={i}>{s}</li>)}
-          </ul>
-        </details>
-      )}
-
       {/* Actions */}
       <div className="flex items-center gap-2 pt-2 border-t">
         {editing ? (
@@ -278,7 +266,7 @@ function LabeledField({ label, value, onChange }: { label: string; value: string
         rows={1}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-input border rounded px-2 py-1 text-xs"
+        className="w-full bg-input border rounded px-2 py-1 text-xs resize-none"
       />
     </div>
   );

@@ -82,7 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#0b0815" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Likeable" },
+      { name: "apple-mobile-web-app-title", content: "HYCS" },
       { property: "og:title", content: "HYCS" },
       { property: "og:description", content: "Hyper-text Cascading Scripts (HYCS) is a free community-based vibe coding platform designed to build full-stack applications using no-framework vanilla JS." },
       { property: "og:type", content: "website" },

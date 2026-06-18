@@ -1,13 +1,13 @@
-import logoAsset from "@/assets/likeable-logo.png.asset.json";
+import logoAsset from "@/assets/hycs-logo.png.asset.json";
 
 export function Logo({ className = "w-6 h-6" }: { className?: string }) {
   return (
     <img
       src={logoAsset.url}
-      alt="Likeable"
+      alt="HYCS"
       className={className}
-      width={192}
-      height={192}
+      width={336}
+      height={336}
       draggable={false}
     />
   );
