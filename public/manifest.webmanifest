@@ -1,13 +1,13 @@
 {
-  "name": "Likeable — AI Website Builder",
-  "short_name": "Likeable",
-  "description": "Describe a website, get a complete HTML page in seconds.",
+  "name": "HYCS — Hyper-text Cascading Scripts",
+  "short_name": "HYCS",
+  "description": "Free vibe coding platform for building no-framework, vanilla-JS websites by chatting with AI.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b0815",
-  "theme_color": "#c065ff",
+  "theme_color": "#3b82f6",
   "categories": ["productivity", "developer", "utilities"],
   "icons": [
     { "src": "/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "any" },
