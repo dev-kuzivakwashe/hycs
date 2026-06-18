@@ -266,7 +266,7 @@ function LabeledField({ label, value, onChange }: { label: string; value: string
         rows={1}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-input border rounded px-2 py-1 text-xs"
+        className="w-full bg-input border rounded px-2 py-1 text-xs resize-none"
       />
     </div>
   );
