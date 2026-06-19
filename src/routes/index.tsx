@@ -652,6 +652,8 @@ function Index() {
     <div className="h-screen flex flex-col">
       <Toaster theme="dark" position="top-center" />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <GithubDeployModal open={githubOpen} onClose={() => setGithubOpen(false)} project={project} />
+
       <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
       {imageModalNode()}
       {analysisModalNode()}
@@ -675,12 +677,14 @@ function Index() {
             <Download className="w-3.5 h-3.5" /> Export
           </button>
           <button
-            disabled
-            title="GitHub deploy coming soon"
-            className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border opacity-40 cursor-not-allowed"
+            onClick={() => setGithubOpen(true)}
+            disabled={!hasAnyPage}
+            title="Deploy generated files to GitHub"
+            className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border hover:bg-accent disabled:opacity-40"
           >
             <Github className="w-3.5 h-3.5" /> GitHub
           </button>
+
           <button onClick={deployNetlify} disabled={!hasAnyPage} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg brand-bg text-white disabled:opacity-40">
             <Rocket className="w-3.5 h-3.5" /> Deploy
           </button>
