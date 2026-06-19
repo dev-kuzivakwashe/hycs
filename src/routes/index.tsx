@@ -26,9 +26,12 @@ import {
   loadSavedProject, deleteSavedProject, type Message, type Project, type SavedProjectMeta,
 } from "@/lib/likeable-store";
 import { useSettings } from "@/lib/likeable-settings";
+import { useByok, resolveAgent } from "@/lib/byok-store";
 import { useAuth } from "@/lib/use-auth";
 import { PlanCard } from "@/components/plan-card";
+import { GithubDeployModal } from "@/components/github-deploy-modal";
 import JSZip from "jszip";
+
 
 hljs.registerLanguage("xml", xml);
 hljs.registerLanguage("css", css);
@@ -82,7 +85,9 @@ function Index() {
   const plan = useServerFn(planRequest);
   const { project, update } = useLikeableStore();
   const { settings } = useSettings();
+  const { state: byokState } = useByok();
   const { user } = useAuth();
+
   const savedProjects = useSavedProjects();
   const messages = project.messages;
   const pages = project.pages;
@@ -103,6 +108,8 @@ function Index() {
   const [pendingUserImage, setPendingUserImage] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [githubOpen, setGithubOpen] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLElement>(null);
@@ -153,6 +160,7 @@ function Index() {
     setLoading(true);
     try {
       const existingPages = Object.entries(pages).map(([slug, p]) => ({ slug, title: p.title }));
+      const plannerBy = resolveAgent(byokState, "planner");
       const res = await plan({
         data: {
           prompt: text,
@@ -162,8 +170,10 @@ function Index() {
           existingPages,
           standardPrompt: settings.standardPromptActive ? settings.standardPrompt : undefined,
           plannerModel: settings.plannerModel,
+          byok: plannerBy ?? undefined,
         },
       });
+
       update((p) => ({
         ...p,
         initialTitle: p.initialTitle || res.plan.name,
@@ -213,6 +223,7 @@ function Index() {
         : baseMessages;
       const existingPages = Object.entries(pages).map(([slug, p]) => ({ slug, title: p.title }));
 
+      const developerBy = resolveAgent(byokState, "developer");
       const res = await generate({
         data: {
           messages: recent.map((m) => ({ role: m.role, content: m.content })),
@@ -226,8 +237,11 @@ function Index() {
           userImageDataUrl: pendingUserImage || undefined,
           pexelsEnabled: settings.pexelsEnabled,
           pixabayEnabled: settings.pixabayEnabled,
+          applyDesignSystem: settings.applyDesignSystem,
+          byok: developerBy ?? undefined,
         },
       });
+
 
       if (pendingUserImage) setPendingUserImage(null);
 
@@ -638,6 +652,8 @@ function Index() {
     <div className="h-screen flex flex-col">
       <Toaster theme="dark" position="top-center" />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <GithubDeployModal open={githubOpen} onClose={() => setGithubOpen(false)} project={project} />
+
       <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
       {imageModalNode()}
       {analysisModalNode()}
@@ -661,12 +677,14 @@ function Index() {
             <Download className="w-3.5 h-3.5" /> Export
           </button>
           <button
-            disabled
-            title="GitHub deploy coming soon"
-            className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border opacity-40 cursor-not-allowed"
+            onClick={() => setGithubOpen(true)}
+            disabled={!hasAnyPage}
+            title="Deploy generated files to GitHub"
+            className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border hover:bg-accent disabled:opacity-40"
           >
             <Github className="w-3.5 h-3.5" /> GitHub
           </button>
+
           <button onClick={deployNetlify} disabled={!hasAnyPage} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg brand-bg text-white disabled:opacity-40">
             <Rocket className="w-3.5 h-3.5" /> Deploy
           </button>

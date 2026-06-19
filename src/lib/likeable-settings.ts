@@ -11,6 +11,7 @@ export type Settings = {
   plannerEnabled: boolean;
   pexelsEnabled: boolean;
   pixabayEnabled: boolean;
+  applyDesignSystem: boolean;
 };
 
 const KEY = "hycs:settings:v1";
@@ -27,7 +28,9 @@ const DEFAULTS: Settings = {
   plannerEnabled: true,
   pexelsEnabled: true,
   pixabayEnabled: true,
+  applyDesignSystem: true,
 };
+
 
 export const PLANNER_MODEL_OPTIONS: { value: string; label: string }[] = [
   { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (fast, cheap, default)" },

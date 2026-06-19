@@ -1,113 +1,133 @@
-# Likeable
+# HYCS
 
-> An open-source, AI-powered website builder. A mini-clone of [Lovable](https://lovable.dev) made *with* Lovable.
+HYCS (Hyper-text Cascading Scripts) is an open-source experiment that turns natural-language prompts into standalone, no-framework websites.
 
-Likeable lets you chat your way to a multi-page Bootstrap 5 website. Each prompt either generates a brand‑new page or edits the current one. Pages share a header, footer, and theme so the whole site stays cohesive without re‑describing the brand on every turn.
+## The Experiment
 
-> **Status:** v0.2 — working multi-page generation, live preview, code view, image upload, style analysis, prompt refinement, project export, mock GitHub & Netlify deploys, PWA install.
+HYCS exists to answer one question: can AI become the primary maintainer of useful applications when the output is restricted to plain HTML, CSS and JavaScript?
 
----
+Generated sites use only:
 
-## Features
+- HTML
+- CSS
+- JavaScript
+- Standard browser and web APIs
 
-### Build flow
-- **Chat-driven generation** — one prompt → one page (`home`, `about`, `services`, `contact`, …).
-- **Edit / New Page modes** — toggle whether the next prompt edits the current page or adds a new one.
-- **Shared design system** — first page generates `theme.css` (CSS variables), `header.html` (Bootstrap navbar with all page links), and `footer.html`. Subsequent pages reuse them and the header auto-regenerates when a page is added.
-- **In-iframe SPA router** — clicking nav links inside the preview swaps pages without a reload.
-- **Image fallback** — broken `<img>` tags are replaced with a theme-coloured SVG placeholder at runtime, so missing photos never break the layout.
-- **External link guard** — links to outside domains inside the preview show a designed confirmation instead of accidentally navigating away.
+No React, no Vue, no Angular, no bundler. The site you generate today still opens in a browser ten years from now.
 
-### Inputs & assistance
-- **Upload image** — attach a custom photo to use as the hero, or have Gemini analyse it and produce a style guide that gets folded back into your prompt.
-- **Refine prompt** — single-click AI rewrite of your draft into a richer spec.
-- **Standard Prompt** — a persistent style guide in Settings that's appended to every generation.
-- **Model picker** — Gemini 2.5 Flash / Pro, GPT-5 Mini / GPT-5, or a Custom endpoint.
+## Core Principles
 
-### Output
-- **Preview tab** — sandboxed iframe with Bootstrap loaded.
-- **Code tab** — syntax-highlighted HTML, CSS, and JS via [highlight.js](https://highlightjs.org), with a one-click copy.
-- **Fullscreen preview** — expand the iframe to the whole viewport.
-- **Export** — download the whole project as a `.zip` containing every page, `shared/`, `sitemap.xml`, and `robots.txt`.
-- **Mock deploys** — Netlify and GitHub buttons (GitHub requires sign-in + a personal access token in Settings; the call is stubbed pending real OAuth).
+- No-framework output
+- User ownership of every generated project
+- Portability across any static host
+- Simplicity over abstraction
+- Independence from HYCS after export
+- Accessibility as a baseline, not a feature
+- Deployability without a build step
 
-### Platform
-- **PWA** — installable from Settings with a custom install flow, manifest, and icon set.
-- **Authentication** — email/password via Lovable Cloud (auto-confirm enabled for the demo).
-- **Persistent project** — the active project lives in `localStorage` under `likeable:project:v2`.
+These principles are formal. The full version lives in [READ-THIS/Generation-Contract.md](READ-THIS/Generation-Contract.md).
 
----
+## How HYCS Works
+
+```
+Prompt
+  -> Planner agent turns it into a reviewable plan
+  -> You approve or edit the plan
+  -> Developer agent writes the HTML, CSS and JS
+  -> Preview renders in a sandboxed iframe
+  -> Export as zip or deploy to GitHub
+```
+
+Each prompt either adds a new page or edits the current one. Header, footer and theme persist across pages.
 
 ## Tech Stack
 
-| Layer | Choice |
-| --- | --- |
-| Framework | [TanStack Start](https://tanstack.com/start) v1 (React 19 + Vite 7) |
-| Routing | TanStack Router, file-based under `src/routes/` |
-| Styling | Tailwind CSS v4 (CSS-first config in `src/styles.css`) |
-| UI primitives | shadcn/ui + Radix |
-| State | Plain `localStorage` + a tiny event-bus hook (`src/lib/likeable-store.ts`) |
-| Server logic | `createServerFn` (no edge functions) in `src/lib/*.functions.ts` |
-| AI | Lovable AI Gateway (Google + OpenAI models) |
-| Auth & DB | Lovable Cloud (Supabase under the hood) |
-| Images | Pexels → Pixabay → Unsplash fallback chain (server-side keyword resolution) |
-| Code highlighting | highlight.js (xml, css, javascript) |
-| PWA | Custom `beforeinstallprompt` capture in `src/lib/install-prompt.ts` |
+HYCS itself is built with:
 
----
+- TanStack Start v1 (React 19, Vite 7)
+- Tailwind CSS v4
+- shadcn/ui primitives
+- Lovable Cloud runtime on Cloudflare Workers
+- Lovable AI Gateway as the default model router
+- LocalStorage persistence for projects, settings and BYOK
+- Optional Supabase Auth for sign-in
 
-## Project Layout
+The stack describes the HYCS platform. It says nothing about what HYCS generates - generated sites are framework-free by contract.
+
+## File Structure
 
 ```text
 src/
-├── routes/
-│   ├── __root.tsx         App shell, head metadata, providers
-│   ├── index.tsx          Builder UI (chat + preview + code)
-│   ├── output.tsx         Standalone fullscreen preview
-│   ├── settings.tsx       PWA install, prompt config, model, integrations
-│   └── documentation.tsx  Renders this README
-├── lib/
-│   ├── likeable.functions.ts        Main generateSite() server fn
-│   ├── likeable-helpers.functions.ts resolveImage / analyzeImage / refinePrompt
-│   ├── likeable-store.ts            Project state + wrapPage() HTML wrapper
-│   ├── likeable-settings.ts         Persistent settings store
-│   ├── install-prompt.ts            PWA install handler
-│   └── use-auth.ts                  Supabase auth hook
-├── components/
-│   ├── logo.tsx
-│   └── auth-modal.tsx
-└── integrations/supabase/   Generated client + types (do not edit)
-public/
-├── manifest.webmanifest
-└── icons/                   PWA icon set
+  routes/              page + server routes (file-based)
+  components/          chat, plan card, BYOK panel, GitHub deploy modal
+  lib/
+    likeable.functions.ts          developer agent
+    likeable-planner.functions.ts  planner agent
+    likeable-helpers.functions.ts  vision + prompt refinement
+    byok-store.ts                  BYOK state + provider registry
+    byok-call.functions.ts         provider adapters (Groq, OpenAI, Gemini, Claude)
+    github-deploy.functions.ts     GitHub deploy via Personal Access Token
+    design-system.ts               rules appended to generator prompts
+    likeable-store.ts              project + page state
+    likeable-settings.ts           user settings
+READ-THIS/             governance + spec documents
+README.md              this file
 ```
 
----
+Routes own pages, lib owns logic, components owns reusable UI. Generation systems live entirely in `src/lib/*.functions.ts`.
 
-## The Build Pipeline
+## HYCS Interface Breakdown
 
-1. **Plan** — user describes a site.
-2. **Theme** — first turn generates `theme.css`, header, footer, and the home page.
-3. **Pages** — every subsequent prompt either *edits* the current page or *adds* a new one. The header is regenerated so its nav always includes every existing page.
-4. **Stitch** — `wrapPage(project, slug)` injects shared partials, loads Bootstrap, and embeds a tiny SPA router so nav links work inside the preview.
-5. **Export / Deploy** — bundle to `.zip` or push to GitHub / Netlify (mock).
+- **Prompt and chat interface** - main screen, drives every generation.
+- **Planning interface (PlanCard)** - editable plan the user approves before any code is written.
+- **Preview window** - sandboxed iframe with the live site.
+- **Code viewer** - syntax-highlighted HTML of the current page.
+- **Output route** - standalone fullscreen render.
+- **Settings** - BYOK providers, design system toggle, integrations, GitHub token.
+- **Documentation** - General and Technical tabs at `/documentation`.
+- **Saved projects** - grid of past projects on the home screen.
 
----
+## What HYCS Generates
 
-## Roadmap
+HYCS generates multi-page static websites. Every page is a self-contained HTML document with its own inline CSS and vanilla JS. Pages share a header, footer and theme that get stitched in at preview time and at export time.
 
-- [ ] Real GitHub OAuth + `/api/deploy/github` server route
-- [ ] Real Netlify deploy via their API
-- [ ] Per-page versioning and rollback
-- [ ] Component library (reusable cards, CTAs) shared across pages
-- [ ] Form submissions wired to Lovable Cloud
-- [ ] Theme designer UI (edit `:root` variables visually)
-- [ ] Lovable AI image generation for hero shots
+Generated sites are deployable as-is to GitHub Pages, Cloudflare Pages, Netlify, Vercel static or any traditional web server.
 
----
+## BYOK (Bring Your Own Key)
+
+HYCS supports your own provider keys for four providers out of the box:
+
+- Groq (recommended for beginners)
+- OpenAI
+- Gemini
+- Claude
+
+You can add custom model IDs under any supported provider without changing the HYCS code, and assign different models to the Planner, Developer and Vision agents. Keys live in your browser only and are never embedded into generated sites or exports.
+
+Full spec: [READ-THIS/BYOK-Specification.md](READ-THIS/BYOK-Specification.md).
+
+## GitHub Deployment
+
+HYCS can push your generated project directly into a GitHub repository you own:
+
+1. Add a GitHub Personal Access Token (with `repo` scope) in Settings or in the deploy dialog.
+2. Click `GitHub` in the toolbar.
+3. Choose `Create new repo` or `Use existing repo`, set a commit message and deploy.
+
+HYCS commits only the project files. No keys, no settings, no BYOK data. The repository belongs to you - delete HYCS access and the project keeps working.
+
+Full spec: [READ-THIS/GitHub-Deployment-Specification.md](READ-THIS/GitHub-Deployment-Specification.md). OAuth is on the roadmap; v1 uses PAT.
 
 ## Contributing
 
-Likeable is open source. Open issues and PRs welcome — especially around prompt quality, the system prompt's structural rules, and additional deploy targets.
+Contributions are welcome from developers, researchers, designers, testers and documentation writers. Before opening a PR, read:
 
-**Likeable made with Lovable. Go.** 💗
+- [READ-THIS/HYCS-Governance.md](READ-THIS/HYCS-Governance.md)
+- [READ-THIS/Generation-Contract.md](READ-THIS/Generation-Contract.md)
+- [READ-THIS/Contribution-Workflow.md](READ-THIS/Contribution-Workflow.md)
+
+The HYCS platform UI is a protected area; major interface changes need maintainer approval. The Generation Contract is the hard line: nothing in this repo should cause HYCS to emit React, Vue, Angular, Svelte, Next.js, Nuxt, Remix or any framework-required output.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

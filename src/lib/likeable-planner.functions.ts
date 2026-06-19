@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { callProvider } from "./byok-call.functions";
+
 
 /**
  * Planner Agent. Separate from the Developer (code-writing) model.
@@ -89,11 +91,18 @@ export const planRequest = createServerFn({ method: "POST" })
       existingPages: z.array(z.object({ slug: z.string(), title: z.string() })).default([]),
       standardPrompt: z.string().optional(),
       plannerModel: z.string().optional(),
+      byok: z
+        .object({
+          provider: z.enum(["groq", "openai", "gemini", "claude"]),
+          model: z.string(),
+          apiKey: z.string(),
+        })
+        .optional(),
     }),
   )
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+    if (!apiKey && !data.byok) throw new Error("LOVABLE_API_KEY not configured");
 
     const ctx: string[] = [];
     ctx.push(`MODE: ${data.mode}`);
@@ -106,31 +115,40 @@ export const planRequest = createServerFn({ method: "POST" })
     }
     if (data.standardPrompt) ctx.push(`STANDARD_STYLE_PROMPT:\n${data.standardPrompt}`);
 
-    // Default planner model is cheaper/faster than the developer model.
-    const model = data.plannerModel || "google/gemini-2.5-flash-lite";
+    const model = data.byok?.model || data.plannerModel || "google/gemini-2.5-flash-lite";
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: PLANNER_SYSTEM },
-          { role: "system", content: ctx.join("\n") },
-          { role: "user", content: data.prompt },
-        ],
-      }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      if (res.status === 429) throw new Error("Planner rate-limited. Try again in a moment.");
-      if (res.status === 402) throw new Error("AI credits exhausted.");
-      throw new Error(`Planner error (${res.status}): ${text}`);
+    let content = "";
+    if (data.byok) {
+      const r = await callProvider(data.byok.provider, {
+        apiKey: data.byok.apiKey,
+        model: data.byok.model,
+        system: `${PLANNER_SYSTEM}\n\n${ctx.join("\n")}`,
+        user: data.prompt,
+      });
+      content = r.text;
+    } else {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: PLANNER_SYSTEM },
+            { role: "system", content: ctx.join("\n") },
+            { role: "user", content: data.prompt },
+          ],
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        if (res.status === 429) throw new Error("Planner rate-limited. Try again in a moment.");
+        if (res.status === 402) throw new Error("AI credits exhausted.");
+        throw new Error(`Planner error (${res.status}): ${text}`);
+      }
+      const json = await res.json();
+      content = json.choices?.[0]?.message?.content ?? "";
     }
 
-    const json = await res.json();
-    const content: string = json.choices?.[0]?.message?.content ?? "";
     const match = content.match(/```json\s*([\s\S]*?)```/i) ?? content.match(/```\s*([\s\S]*?)```/i);
     const raw = match ? match[1].trim() : content.trim();
 

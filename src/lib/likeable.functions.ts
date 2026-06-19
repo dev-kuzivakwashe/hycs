@@ -1,5 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { DESIGN_SYSTEM_RULES } from "./design-system";
+import { callProvider } from "./byok-call.functions";
+
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -74,11 +77,19 @@ export const generateSite = createServerFn({ method: "POST" })
       userImageDataUrl: z.string().optional(),
       pexelsEnabled: z.boolean().default(true),
       pixabayEnabled: z.boolean().default(true),
+      applyDesignSystem: z.boolean().default(true),
+      byok: z
+        .object({
+          provider: z.enum(["groq", "openai", "gemini", "claude"]),
+          model: z.string(),
+          apiKey: z.string(),
+        })
+        .optional(),
     }),
   )
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+    if (!apiKey && !data.byok) throw new Error("LOVABLE_API_KEY not configured");
 
     const ctxLines: string[] = [];
     ctxLines.push(`MODE: ${data.mode}`);
@@ -113,34 +124,55 @@ export const generateSite = createServerFn({ method: "POST" })
       ctxLines.push(`STANDARD_PROMPT (always-apply user style guide):\n${data.standardPrompt}`);
     }
 
+    const fullSystem = data.applyDesignSystem
+      ? `${SYSTEM_PROMPT}\n\n${DESIGN_SYSTEM_RULES}`
+      : SYSTEM_PROMPT;
     const contextMessage = { role: "system" as const, content: ctxLines.join("\n") };
 
-    const isCustom = data.model === "custom" && !!data.customEndpoint;
-    const endpoint = isCustom ? data.customEndpoint! : "https://ai.gateway.lovable.dev/v1/chat/completions";
-    const model = (data.model && data.model !== "custom") ? data.model : "google/gemini-2.5-flash";
+    // Collapse the chat history into a single user message for BYOK providers
+    // that don't accept multi-turn system+context messages the same way.
+    const userTurn = data.messages
+      .map((m) => `[${m.role.toUpperCase()}] ${m.content}`)
+      .join("\n\n");
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          contextMessage,
-          ...data.messages,
-        ],
-      }),
-    });
+    let content = "";
+    if (data.byok) {
+      const r = await callProvider(data.byok.provider, {
+        apiKey: data.byok.apiKey,
+        model: data.byok.model,
+        system: `${fullSystem}\n\n${ctxLines.join("\n")}`,
+        user: userTurn,
+      });
+      content = r.text;
+    } else {
+      const isCustom = data.model === "custom" && !!data.customEndpoint;
+      const endpoint = isCustom ? data.customEndpoint! : "https://ai.gateway.lovable.dev/v1/chat/completions";
+      const model = (data.model && data.model !== "custom") ? data.model : "google/gemini-2.5-flash";
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      if (response.status === 429) throw new Error("Rate limit exceeded. Try again in a moment.");
-      if (response.status === 402) throw new Error("AI credits exhausted. Add credits to your workspace.");
-      throw new Error(`AI gateway error (${response.status}): ${text}`);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: fullSystem },
+            contextMessage,
+            ...data.messages,
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        if (response.status === 429) throw new Error("Rate limit exceeded. Try again in a moment.");
+        if (response.status === 402) throw new Error("AI credits exhausted. Add credits to your workspace.");
+        throw new Error(`AI gateway error (${response.status}): ${text}`);
+      }
+
+      const json = await response.json();
+      content = json.choices?.[0]?.message?.content ?? "";
     }
 
-    const json = await response.json();
-    const content: string = json.choices?.[0]?.message?.content ?? "";
 
     const match = content.match(/```json\s*([\s\S]*?)```/i) ?? content.match(/```\s*([\s\S]*?)```/i);
     const rawJson = match ? match[1].trim() : content.trim();
