@@ -17,6 +17,7 @@ type AdapterArgs = {
   model: string;
   system: string;
   user: string;
+  jsonMode?: boolean;
 };
 
 type AdapterResult = { text: string };
@@ -43,6 +44,9 @@ async function callOpenAICompatible(baseUrl: string, args: AdapterArgs): Promise
     headers: { Authorization: `Bearer ${args.apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: args.model,
+      temperature: 0.2,
+      max_tokens: 8192,
+      ...(args.jsonMode ? { response_format: { type: "json_object" } } : {}),
       messages: [
         { role: "system", content: args.system },
         { role: "user", content: args.user },
@@ -66,6 +70,11 @@ async function callGemini(args: AdapterArgs): Promise<AdapterResult> {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: args.system }] },
       contents: [{ role: "user", parts: [{ text: args.user }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        ...(args.jsonMode ? { responseMimeType: "application/json" } : {}),
+      },
     }),
   });
   if (!r.ok) {
@@ -87,7 +96,7 @@ async function callClaude(args: AdapterArgs): Promise<AdapterResult> {
     },
     body: JSON.stringify({
       model: args.model,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: args.system,
       messages: [{ role: "user", content: args.user }],
     }),

@@ -16,7 +16,7 @@ const pageMetaSchema = z.object({
 
 const SYSTEM_PROMPT = `You are HYCS, an AI multi-page website builder. HYCS pages are NO-FRAMEWORK: every page is plain HTML + custom CSS + vanilla JS. You MUST NOT use Bootstrap, Tailwind, or any other CSS framework — write your own CSS in a per-page <style> block.
 
-You return EXACTLY ONE JSON object inside a single \`\`\`json fenced code block. No prose before or after.
+You return EXACTLY ONE JSON object. No prose before or after. If the API supports JSON mode, return raw JSON without markdown fences.
 
 JSON shape (fields are optional unless noted):
 {
@@ -62,6 +62,53 @@ Always include alt text.
 - When ADDING a new page, regenerate headerHtml so its nav includes ALL existing pages PLUS this new one.
 - When EDITING the current page, return updated pageHtml for the same slug; only include headerHtml/footerHtml/themeCss if your edit specifically touches them.
 `;
+
+function extractJsonObject(text: string): Record<string, unknown> | null {
+  const candidates: string[] = [];
+  for (const match of text.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)) {
+    candidates.push(match[1].trim());
+  }
+  candidates.push(text.trim());
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+    } catch { /* try sliced object */ }
+
+    const sliced = sliceFirstJsonObject(candidate);
+    if (!sliced) continue;
+    try {
+      const parsed = JSON.parse(sliced);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+    } catch { /* invalid candidate */ }
+  }
+  return null;
+}
+
+function sliceFirstJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const char = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
 
 export const generateSite = createServerFn({ method: "POST" })
   .inputValidator(
@@ -136,24 +183,27 @@ export const generateSite = createServerFn({ method: "POST" })
       .join("\n\n");
 
     let content = "";
+    const isCustom = data.model === "custom" && !!data.customEndpoint;
+    const endpoint = isCustom ? data.customEndpoint! : "https://ai.gateway.lovable.dev/v1/chat/completions";
+    const model = (data.model && data.model !== "custom") ? data.model : "google/gemini-2.5-flash";
     if (data.byok) {
       const r = await callProvider(data.byok.provider, {
         apiKey: data.byok.apiKey,
         model: data.byok.model,
         system: `${fullSystem}\n\n${ctxLines.join("\n")}`,
         user: userTurn,
+        jsonMode: true,
       });
       content = r.text;
     } else {
-      const isCustom = data.model === "custom" && !!data.customEndpoint;
-      const endpoint = isCustom ? data.customEndpoint! : "https://ai.gateway.lovable.dev/v1/chat/completions";
-      const model = (data.model && data.model !== "custom") ? data.model : "google/gemini-2.5-flash";
-
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model,
+          temperature: 0.2,
+          max_tokens: 8192,
+          ...(isCustom ? {} : { response_format: { type: "json_object" } }),
           messages: [
             { role: "system", content: fullSystem },
             contextMessage,
@@ -174,21 +224,34 @@ export const generateSite = createServerFn({ method: "POST" })
     }
 
 
-    const match = content.match(/```json\s*([\s\S]*?)```/i) ?? content.match(/```\s*([\s\S]*?)```/i);
-    const rawJson = match ? match[1].trim() : content.trim();
-    let parsed: Record<string, unknown> | null = null;
-    try {
-      parsed = JSON.parse(rawJson);
-    } catch {
-      const start = rawJson.indexOf("{");
-      const end = rawJson.lastIndexOf("}");
-      if (start >= 0 && end > start) {
-        try { parsed = JSON.parse(rawJson.slice(start, end + 1)); } catch { /* ignore */ }
+    let parsed = extractJsonObject(content);
+    if (!parsed && !data.byok && apiKey) {
+      const repairResponse = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          temperature: 0,
+          max_tokens: 8192,
+          ...(isCustom ? {} : { response_format: { type: "json_object" } }),
+          messages: [
+            {
+              role: "system",
+              content: "Repair the assistant output into exactly one valid JSON object matching the HYCS developer schema. Preserve HTML, CSS and JS strings. Return only raw JSON.",
+            },
+            { role: "user", content: content.slice(0, 24000) },
+          ],
+        }),
+      });
+      if (repairResponse.ok) {
+        const repairJson = await repairResponse.json();
+        content = repairJson.choices?.[0]?.message?.content ?? content;
+        parsed = extractJsonObject(content);
       }
     }
 
     if (!parsed || typeof parsed !== "object") {
-      throw new Error("AI did not return valid JSON. Please rephrase.");
+      throw new Error("AI returned incomplete JSON. Try a shorter request or switch the Developer model.");
     }
 
     let pageHtml = typeof parsed.pageHtml === "string" ? parsed.pageHtml : null;

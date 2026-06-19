@@ -9,7 +9,7 @@ import { callProvider } from "./byok-call.functions";
  * the Developer Agent can consume. The Planner NEVER writes code.
  */
 
-const PLANNER_SYSTEM = `You are the Likeable Planner Agent — a requirements planner for a website-building platform. You NEVER write code. Your only output is a structured plan.
+const PLANNER_SYSTEM = `You are the HYCS Planner Agent - a requirements planner for a no-framework website-building platform. You NEVER write code. Your only output is a structured plan.
 
 Given the user's request, you must:
 1. Decompose it into discrete feature/change items.
@@ -17,7 +17,7 @@ Given the user's request, you must:
 3. Flag autonomous decisions you make (anything not explicitly requested).
 4. Estimate scope.
 
-You MUST return EXACTLY ONE JSON object inside a single \`\`\`json fenced code block. No prose before or after. Schema:
+You MUST return EXACTLY ONE JSON object. No prose before or after. If the API supports JSON mode, return raw JSON without markdown fences. Schema:
 
 {
   "name": string,                        // short name for the change, e.g. "Coffee shop hero + menu page"
@@ -47,9 +47,9 @@ You MUST return EXACTLY ONE JSON object inside a single \`\`\`json fenced code b
 
 Rules:
 - Keep "openQuestions" to AT MOST 5. Each must be specific, answerable, and have a sensible default.
-- If the prompt is fully clear, return an empty openQuestions array — still produce the plan.
+- If the prompt is fully clear, return an empty openQuestions array - still produce the plan.
 - Be concise. No marketing language.
-- This platform builds standalone HTML websites with Bootstrap 5; "files" usually means pages (home.html, about.html, etc.) and shared theme.css/header/footer.
+- This platform builds standalone no-framework HTML websites; "files" usually means pages (home.html, about.html, etc.) and shared theme.css/header/footer.
 - Do NOT propose code. Describe intent and structure only.`;
 
 const SizeEnum = z.enum(["Small", "Medium", "Large"]);
@@ -124,6 +124,7 @@ export const planRequest = createServerFn({ method: "POST" })
         model: data.byok.model,
         system: `${PLANNER_SYSTEM}\n\n${ctx.join("\n")}`,
         user: data.prompt,
+        jsonMode: true,
       });
       content = r.text;
     } else {
@@ -132,6 +133,9 @@ export const planRequest = createServerFn({ method: "POST" })
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model,
+          temperature: 0.2,
+          max_tokens: 4096,
+          response_format: { type: "json_object" },
           messages: [
             { role: "system", content: PLANNER_SYSTEM },
             { role: "system", content: ctx.join("\n") },
@@ -176,7 +180,7 @@ export function planToFinalSpec(plan: Plan, originalPrompt: string): string {
     : "  (none)";
   const cleanup = plan.mockCleanup.length ? plan.mockCleanup.map((s) => `  - DELETE: ${s}`).join("\n") : "  (none)";
   return [
-    `APPROVED PLAN — implement EXACTLY this. Do not ask questions. If a step is impossible, report and stop.`,
+    `APPROVED PLAN - implement EXACTLY this. Do not ask questions. If a step is impossible, report and stop.`,
     ``,
     `Original user request: ${originalPrompt}`,
     ``,

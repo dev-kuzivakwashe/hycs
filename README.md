@@ -125,8 +125,11 @@ Contributions are welcome from developers, researchers, designers, testers and d
 - [READ-THIS/HYCS-Governance.md](READ-THIS/HYCS-Governance.md)
 - [READ-THIS/Generation-Contract.md](READ-THIS/Generation-Contract.md)
 - [READ-THIS/Contribution-Workflow.md](READ-THIS/Contribution-Workflow.md)
+- [READ-THIS/Contributor-Readiness-Checklist.md](READ-THIS/Contributor-Readiness-Checklist.md)
 
 The HYCS platform UI is a protected area; major interface changes need maintainer approval. The Generation Contract is the hard line: nothing in this repo should cause HYCS to emit React, Vue, Angular, Svelte, Next.js, Nuxt, Remix or any framework-required output.
+
+Before opening the repository broadly, finish the community basics: `LICENSE`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, issue templates, a pull request template and CI checks for linting, types and formatting.
 
 ## License
 
