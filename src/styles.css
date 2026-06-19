@@ -130,7 +130,7 @@
 .prose-hycs code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: var(--muted); padding: 0.15rem 0.4rem; border-radius: 0.3rem; color: oklch(0.92 0.05 250); }
 .prose-hycs pre { background: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; overflow-x: auto; margin: 0 0 1.25rem; }
 .prose-hycs pre code { background: transparent; padding: 0; color: var(--foreground); font-size: 0.8rem; line-height: 1.55; }
-.prose-hycs blockquote { border-left: 3px solid oklch(0.68 0.18 250); padding: 0.5rem 0 0.5rem 1rem; margin: 0 0 1rem; color: var(--muted-foreground); font-style: italic; background: var(--card); border-radius: 0 0.5rem 0.5rem 0; }
+.prose-hycs blockquote { border-left: 3px solid oklch(0.68 0.18 250); padding: 0.5rem 0 0.5rem 1rem; margin: 0 0 1rem; color: var(--muted-foreground); font-style: italic; background: var(--card); }
 .prose-hycs table { width: 100%; border-collapse: collapse; margin: 0 0 1.25rem; font-size: 0.85rem; }
 .prose-hycs th, .prose-hycs td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
 .prose-hycs th { background: var(--card); font-weight: 600; }
@@ -142,10 +142,36 @@
 .prose-hycs-compact > *:first-child { margin-top: 0; }
 .prose-hycs-compact > *:last-child { margin-bottom: 0; }
 .prose-hycs-compact p { margin: 0 0 0.5rem; }
-.prose-hycs-compact h1, .prose-hycs-compact h2, .prose-hycs-compact h3 { font-size: 1rem; margin: 0.5rem 0 0.25rem; padding-top: 0; border: none; background: none; -webkit-text-fill-color: currentColor; color: currentColor; font-weight: 700; }
+.prose-hycs-compact h1, .prose-hycs-compact h2, .prose-hycs-compact h3 { font-size: 1rem; margin: 0.5rem 0 0.25rem; padding-top: 0; border: none; background: none; -webkit-text-fill-color: currentColor; }
 .prose-hycs-compact ul, .prose-hycs-compact ol { margin: 0 0 0.5rem; padding-left: 1.25rem; }
 .prose-hycs-compact code { font-size: 0.8em; }
 .prose-hycs-compact pre { margin: 0.25rem 0 0.5rem; padding: 0.5rem; }
 
 /* Legacy alias kept for any leftover usage */
 .prose-likeable { color: var(--foreground); font-size: 0.95rem; line-height: 1.7; }
+
+/* Hide Lovable badge to avoid user confusion between HYCS and Lovable branding.
+   The Lovable badge is injected at build time and overlaps with HYCS branding,
+   so we hide it entirely to maintain a clean, unified brand experience. */
+#lovable-badge {
+    display: none;      /* Completely removes it from layout */
+    visibility: hidden; /* Makes it invisible but still occupies space */
+    opacity: 0;         /* Makes it fully transparent */
+    pointer-events: none; /* Disables clicks/interactions */
+}
+
+a[href="https://lovable.dev/projects/0d171e46-a2ec-4c61-96e7-1a2d79e0c0b6?utm_source=lovable-badge"][target="_blank"] {
+    display: none;
+}
+
+a#lovable-badge {
+    display: none;
+}
+
+a[href^="https://lovable.dev/projects/0d171e46-a2ec-4c61-96e7-1a2d79e0c0b6"] {
+    display: none;
+}
+
+#container #lovable-badge {
+    display: none;
+}
