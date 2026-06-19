@@ -196,7 +196,7 @@ export const generateSite = createServerFn({ method: "POST" })
       });
       content = r.text;
     } else {
-      const response = await fetch(endpoint, {
+      let response = await fetch(endpoint, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -211,6 +211,22 @@ export const generateSite = createServerFn({ method: "POST" })
           ],
         }),
       });
+      if (!response.ok && response.status === 400 && !isCustom) {
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            temperature: 0.2,
+            max_tokens: 8192,
+            messages: [
+              { role: "system", content: `${fullSystem}\n\nReturn only raw JSON. Do not use markdown fences.` },
+              contextMessage,
+              ...data.messages,
+            ],
+          }),
+        });
+      }
 
       if (!response.ok) {
         const text = await response.text().catch(() => "");
