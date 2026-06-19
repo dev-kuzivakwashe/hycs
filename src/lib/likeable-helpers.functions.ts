@@ -137,7 +137,7 @@ export const refinePrompt = createServerFn({ method: "POST" })
           {
             role: "system",
             content:
-              "Improve the user's website-build prompt. Make it more specific: add details about color palette, layout, animations, image keywords, and content sections — but preserve the original intent. Output ONLY the refined prompt as plain text, no preface, no quotes, no markdown.",
+              "Improve the user's website-build prompt. Make it more specific: add details about color palette, layout, animations, image keywords, and content sections - but preserve the original intent. Output ONLY the refined prompt as plain text, no preface, no quotes, no markdown.",
           },
           { role: "user", content: data.prompt },
         ],
