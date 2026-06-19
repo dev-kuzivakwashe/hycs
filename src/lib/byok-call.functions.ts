@@ -46,7 +46,7 @@ async function callOpenAICompatible(baseUrl: string, args: AdapterArgs): Promise
       model: args.model,
       temperature: 0.2,
       max_tokens: 8192,
-      ...(args.jsonMode ? { response_format: { type: "json_object" } } : {}),
+      ...(args.jsonMode && !baseUrl.includes("groq.com") ? { response_format: { type: "json_object" } } : {}),
       messages: [
         { role: "system", content: args.system },
         { role: "user", content: args.user },
