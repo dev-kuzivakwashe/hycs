@@ -128,7 +128,7 @@ export const planRequest = createServerFn({ method: "POST" })
       });
       content = r.text;
     } else {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      let res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -143,6 +143,22 @@ export const planRequest = createServerFn({ method: "POST" })
           ],
         }),
       });
+      if (!res.ok && res.status === 400) {
+        res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            temperature: 0.2,
+            max_tokens: 4096,
+            messages: [
+              { role: "system", content: `${PLANNER_SYSTEM}\n\nReturn only raw JSON. Do not use markdown fences.` },
+              { role: "system", content: ctx.join("\n") },
+              { role: "user", content: data.prompt },
+            ],
+          }),
+        });
+      }
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         if (res.status === 429) throw new Error("Planner rate-limited. Try again in a moment.");
