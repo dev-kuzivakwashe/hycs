@@ -143,7 +143,7 @@ export function PlanCard({ plan, status, onApprove, onReject }: Props) {
             Open questions {view.openQuestions.length > 0 && `(${view.openQuestions.length})`}
             {!editing && view.openQuestions.length > 0 && (
               <span className="ml-2 normal-case text-[10px] text-muted-foreground/70">
-                — Approve uses defaults
+                - Approve uses defaults
               </span>
             )}
           </div>
