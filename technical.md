@@ -40,14 +40,19 @@ src/
     animated-title.tsx  Flip-up/down headline rotator
     custom-select.tsx   Themed select replacement
   lib/
-    likeable.functions.ts          Developer agent
-    likeable-planner.functions.ts  Planner agent
+    likeable.functions.ts          Developer agent (BYOK-aware)
+    likeable-planner.functions.ts  Planner agent (BYOK-aware)
     likeable-helpers.functions.ts  Vision + prompt refinement
     fetch-image.functions.ts       Pexels / Pixabay image lookup
+    byok-store.ts                  BYOK state + provider registry
+    byok-call.functions.ts         Provider adapters: Groq, OpenAI, Gemini, Claude
+    github-deploy.functions.ts     GitHub deploy via Personal Access Token
+    design-system.ts               Generation rules appended to agent prompts
     likeable-store.ts              Project + page state
     likeable-settings.ts           User settings (models, toggles, keys)
     install-prompt.ts              PWA beforeinstallprompt hook
     use-auth.ts                    Auth state hook
+
 ```
 
 ## Page Generation Contract
