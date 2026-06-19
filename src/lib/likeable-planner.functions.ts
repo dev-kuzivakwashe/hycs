@@ -111,7 +111,7 @@ export const planRequest = createServerFn({ method: "POST" })
     if (data.existingPages.length) {
       ctx.push(`EXISTING_PAGES: ${data.existingPages.map((p) => p.slug).join(", ")}`);
     } else {
-      ctx.push(`EXISTING_PAGES: (none — this is a brand new site)`);
+      ctx.push(`EXISTING_PAGES: (none - this is a brand new site)`);
     }
     if (data.standardPrompt) ctx.push(`STANDARD_STYLE_PROMPT:\n${data.standardPrompt}`);
 
