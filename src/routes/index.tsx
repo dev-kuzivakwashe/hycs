@@ -26,9 +26,12 @@ import {
   loadSavedProject, deleteSavedProject, type Message, type Project, type SavedProjectMeta,
 } from "@/lib/likeable-store";
 import { useSettings } from "@/lib/likeable-settings";
+import { useByok, resolveAgent } from "@/lib/byok-store";
 import { useAuth } from "@/lib/use-auth";
 import { PlanCard } from "@/components/plan-card";
+import { GithubDeployModal } from "@/components/github-deploy-modal";
 import JSZip from "jszip";
+
 
 hljs.registerLanguage("xml", xml);
 hljs.registerLanguage("css", css);
@@ -82,7 +85,9 @@ function Index() {
   const plan = useServerFn(planRequest);
   const { project, update } = useLikeableStore();
   const { settings } = useSettings();
+  const { state: byokState } = useByok();
   const { user } = useAuth();
+
   const savedProjects = useSavedProjects();
   const messages = project.messages;
   const pages = project.pages;
@@ -103,6 +108,8 @@ function Index() {
   const [pendingUserImage, setPendingUserImage] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [githubOpen, setGithubOpen] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLElement>(null);
