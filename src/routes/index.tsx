@@ -160,6 +160,7 @@ function Index() {
     setLoading(true);
     try {
       const existingPages = Object.entries(pages).map(([slug, p]) => ({ slug, title: p.title }));
+      const plannerBy = resolveAgent(byokState, "planner");
       const res = await plan({
         data: {
           prompt: text,
@@ -169,8 +170,10 @@ function Index() {
           existingPages,
           standardPrompt: settings.standardPromptActive ? settings.standardPrompt : undefined,
           plannerModel: settings.plannerModel,
+          byok: plannerBy ?? undefined,
         },
       });
+
       update((p) => ({
         ...p,
         initialTitle: p.initialTitle || res.plan.name,
@@ -220,6 +223,7 @@ function Index() {
         : baseMessages;
       const existingPages = Object.entries(pages).map(([slug, p]) => ({ slug, title: p.title }));
 
+      const developerBy = resolveAgent(byokState, "developer");
       const res = await generate({
         data: {
           messages: recent.map((m) => ({ role: m.role, content: m.content })),
@@ -233,8 +237,11 @@ function Index() {
           userImageDataUrl: pendingUserImage || undefined,
           pexelsEnabled: settings.pexelsEnabled,
           pixabayEnabled: settings.pixabayEnabled,
+          applyDesignSystem: settings.applyDesignSystem,
+          byok: developerBy ?? undefined,
         },
       });
+
 
       if (pendingUserImage) setPendingUserImage(null);
 
