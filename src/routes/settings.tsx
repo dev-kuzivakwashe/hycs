@@ -14,6 +14,8 @@ import { useAuth } from "@/lib/use-auth";
 import { AuthModal } from "@/components/auth-modal";
 import { CustomSelect } from "@/components/custom-select";
 import { ToggleSwitch } from "@/components/toggle-switch";
+import { ByokPanel } from "@/components/byok-panel";
+
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -218,17 +220,53 @@ function SettingsPage() {
           </div>
         </fieldset>
 
-        {/* GitHub - kept but disabled until implemented for real */}
+        {/* BYOK */}
+        <ByokPanel />
+
+        {/* Design system rules */}
         <fieldset className="bg-card border rounded-2xl p-5">
-          <legend className="px-2 text-xs uppercase tracking-wider text-muted-foreground">Connections</legend>
-          <button
-            disabled
-            title="Coming soon"
-            className="w-full flex items-center justify-center gap-2 border rounded-lg py-2 text-sm opacity-50 cursor-not-allowed"
-          >
-            <Github className="w-4 h-4" /> Connect GitHub (coming soon)
-          </button>
+          <legend className="px-2 text-xs uppercase tracking-wider text-muted-foreground">Generated Output</legend>
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 pr-3">
+              <h2 className="font-semibold text-sm">Apply HYCS design system</h2>
+              <p className="text-xs text-muted-foreground">Adds responsiveness, hierarchy, spacing scale and accessibility rules to every generation. Recommended on.</p>
+            </div>
+            <ToggleSwitch
+              checked={settings.applyDesignSystem}
+              onChange={(v) => update({ applyDesignSystem: v })}
+              label="Design system enabled"
+            />
+          </div>
         </fieldset>
+
+        {/* GitHub - PAT-based v1 */}
+        <fieldset className="bg-card border rounded-2xl p-5 space-y-3">
+          <legend className="px-2 text-xs uppercase tracking-wider text-muted-foreground">Connections</legend>
+          <div className="flex items-center gap-2 text-sm">
+            <Github className="w-4 h-4" />
+            <span className="font-medium">GitHub</span>
+            {settings.githubToken ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full border bg-green-500/15 text-green-400 border-green-500/30">Connected</span>
+            ) : (
+              <span className="text-[10px] px-2 py-0.5 rounded-full border bg-muted text-muted-foreground">Not connected</span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Add a Personal Access Token with <strong>repo</strong> scope to deploy generated sites to your own GitHub.
+          </p>
+          <a href="https://github.com/settings/tokens/new?scopes=repo&description=HYCS%20deploy" target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+            Create a new token <ExternalLink className="w-3 h-3" />
+          </a>
+          <input
+            type="password"
+            value={settings.githubToken}
+            onChange={(e) => update({ githubToken: e.target.value })}
+            placeholder="ghp_..."
+            className="w-full bg-input border rounded-lg px-3 py-2 text-sm font-mono outline-none"
+            autoComplete="off"
+          />
+        </fieldset>
+
 
         {/* Workspace */}
         <fieldset className="bg-card border rounded-2xl p-1.5">
