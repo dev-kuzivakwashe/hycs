@@ -135,8 +135,9 @@ export const generateSite = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey && !data.byok) throw new Error("LOVABLE_API_KEY not configured");
+    if (!data.byok) {
+      throw new Error("No AI key configured. Open Settings, add a provider key (Groq, OpenAI, Gemini, or Claude), and assign it to the Developer agent.");
+    }
 
     const ctxLines: string[] = [];
     ctxLines.push(`MODE: ${data.mode}`);
@@ -174,7 +175,6 @@ export const generateSite = createServerFn({ method: "POST" })
     const fullSystem = data.applyDesignSystem
       ? `${SYSTEM_PROMPT}\n\n${DESIGN_SYSTEM_RULES}`
       : SYSTEM_PROMPT;
-    const contextMessage = { role: "system" as const, content: ctxLines.join("\n") };
 
     // Collapse the chat history into a single user message for BYOK providers
     // that don't accept multi-turn system+context messages the same way.
@@ -182,93 +182,42 @@ export const generateSite = createServerFn({ method: "POST" })
       .map((m) => `[${m.role.toUpperCase()}] ${m.content}`)
       .join("\n\n");
 
+    const system = `${fullSystem}\n\n${ctxLines.join("\n")}`;
+
     let content = "";
-    const isCustom = data.model === "custom" && !!data.customEndpoint;
-    const endpoint = isCustom ? data.customEndpoint! : "https://ai.gateway.lovable.dev/v1/chat/completions";
-    const model = (data.model && data.model !== "custom") ? data.model : "google/gemini-2.5-flash";
-    if (data.byok) {
+    {
       const r = await callProvider(data.byok.provider, {
         apiKey: data.byok.apiKey,
         model: data.byok.model,
-        system: `${fullSystem}\n\n${ctxLines.join("\n")}`,
+        system,
         user: userTurn,
         jsonMode: true,
       });
       content = r.text;
-    } else {
-      let response = await fetch(endpoint, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          temperature: 0.2,
-          max_tokens: 8192,
-          ...(isCustom ? {} : { response_format: { type: "json_object" } }),
-          messages: [
-            { role: "system", content: fullSystem },
-            contextMessage,
-            ...data.messages,
-          ],
-        }),
-      });
-      if (!response.ok && response.status === 400 && !isCustom) {
-        response = await fetch(endpoint, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model,
-            temperature: 0.2,
-            max_tokens: 8192,
-            messages: [
-              { role: "system", content: `${fullSystem}\n\nReturn only raw JSON. Do not use markdown fences.` },
-              contextMessage,
-              ...data.messages,
-            ],
-          }),
-        });
-      }
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        if (response.status === 429) throw new Error("Rate limit exceeded. Try again in a moment.");
-        if (response.status === 402) throw new Error("AI credits exhausted. Add credits to your workspace.");
-        throw new Error(`AI gateway error (${response.status}): ${text}`);
-      }
-
-      const json = await response.json();
-      content = json.choices?.[0]?.message?.content ?? "";
     }
 
-
     let parsed = extractJsonObject(content);
-    if (!parsed && !data.byok && apiKey) {
-      const repairResponse = await fetch(endpoint, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          max_tokens: 8192,
-          ...(isCustom ? {} : { response_format: { type: "json_object" } }),
-          messages: [
-            {
-              role: "system",
-              content: "Repair the assistant output into exactly one valid JSON object matching the HYCS developer schema. Preserve HTML, CSS and JS strings. Return only raw JSON.",
-            },
-            { role: "user", content: content.slice(0, 24000) },
-          ],
-        }),
-      });
-      if (repairResponse.ok) {
-        const repairJson = await repairResponse.json();
-        content = repairJson.choices?.[0]?.message?.content ?? content;
+    if (!parsed) {
+      // One repair pass using the same BYOK provider.
+      try {
+        const repair = await callProvider(data.byok.provider, {
+          apiKey: data.byok.apiKey,
+          model: data.byok.model,
+          system: "Repair the assistant output into exactly one valid JSON object matching the HYCS developer schema. Preserve HTML, CSS and JS strings. Return only raw JSON.",
+          user: content.slice(0, 24000),
+          jsonMode: true,
+        });
+        content = repair.text || content;
         parsed = extractJsonObject(content);
+      } catch {
+        /* fall through */
       }
     }
 
     if (!parsed || typeof parsed !== "object") {
-      throw new Error("AI returned incomplete JSON. Try a shorter request or switch the Developer model.");
+      throw new Error("AI returned incomplete JSON. Try a shorter request or switch the Developer model in Settings.");
     }
+
 
     let pageHtml = typeof parsed.pageHtml === "string" ? parsed.pageHtml : null;
     let headerHtml = typeof parsed.headerHtml === "string" ? parsed.headerHtml : null;

@@ -306,11 +306,16 @@ function Index() {
 
   async function analyzeStyle() {
     if (!imageModal) return;
+    const visionBy = resolveAgent(byokState, "vision") ?? resolveAgent(byokState, "developer");
+    if (!visionBy || visionBy.provider !== "gemini") {
+      toast.error("Image analysis needs a Gemini key. Add one in Settings and assign it to the Vision agent.");
+      return;
+    }
     const url = imageModal.dataUrl;
     setImageModal(null);
     const id = toast.loading("Analyzing image...");
     try {
-      const r = await analyze({ data: { dataUrl: url } });
+      const r = await analyze({ data: { dataUrl: url, byok: visionBy } });
       toast.dismiss(id);
       setAnalysisModal({ text: r.analysis });
     } catch (e) {
@@ -326,16 +331,22 @@ function Index() {
 
   async function doRefine() {
     if (!input.trim()) { toast.info("Type something first."); return; }
+    const refineBy = resolveAgent(byokState, "planner") ?? resolveAgent(byokState, "developer");
+    if (!refineBy) {
+      toast.error("Add an AI provider key in Settings to refine prompts.");
+      return;
+    }
     setMenuOpen(false);
     const id = toast.loading("Refining...");
     try {
-      const r = await refine({ data: { prompt: input } });
+      const r = await refine({ data: { prompt: input, byok: refineBy } });
       setInput(r.refined);
       toast.success("Prompt refined", { id });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Refine failed", { id });
     }
   }
+
 
   async function exportZip() {
     if (!hasAnyPage) return;
