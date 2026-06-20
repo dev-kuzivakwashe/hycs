@@ -87,66 +87,63 @@ export const resolveImagesInHtml = createServerFn({ method: "POST" })
     return { html };
   });
 
-/* ---------------- Gemini: analyze uploaded image for style inspiration ---------------- */
+/* ---------------- Vision: analyze uploaded image (Gemini BYOK only) ---------------- */
+
+import { callProvider } from "./byok-call.functions";
+
+const byokSchema = z.object({
+  provider: z.enum(["groq", "openai", "gemini", "claude"]),
+  model: z.string(),
+  apiKey: z.string(),
+});
 
 export const analyzeImage = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ dataUrl: z.string().min(20) }))
+  .inputValidator(z.object({ dataUrl: z.string().min(20), byok: byokSchema }))
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    if (data.byok.provider !== "gemini") {
+      throw new Error("Image analysis currently requires a Gemini key. Add one in Settings and assign it to the Vision agent.");
+    }
+    // Parse data URL -> { mimeType, base64 }
+    const m = /^data:([^;,]+)(;base64)?,(.*)$/i.exec(data.dataUrl);
+    if (!m) throw new Error("Invalid image data URL.");
+    const mimeType = m[1] || "image/png";
+    const base64 = m[2] ? m[3] : btoa(decodeURIComponent(m[3]));
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(data.byok.model)}:generateContent?key=${encodeURIComponent(data.byok.apiKey)}`;
+    const r = await fetch(url, {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Analyze this image for web design inspiration. Return a short style guide (3-5 sentences) covering: color palette (include 3-4 hex codes), typography mood, spacing vibe (airy/compact), and any standout visual motifs. Output as plain text suitable to prepend to a website-build prompt.",
-              },
-              { type: "image_url", image_url: { url: data.dataUrl } },
-            ],
-          },
-        ],
+        contents: [{
+          role: "user",
+          parts: [
+            { text: "Analyze this image for web design inspiration. Return a short style guide (3-5 sentences) covering: color palette (include 3-4 hex codes), typography mood, spacing vibe (airy/compact), and any standout visual motifs. Output as plain text suitable to prepend to a website-build prompt." },
+            { inlineData: { mimeType, data: base64 } },
+          ],
+        }],
       }),
     });
     if (!r.ok) {
       const t = await r.text().catch(() => "");
+      if (r.status === 401 || r.status === 403) throw new Error("Gemini key rejected. Check Settings.");
       throw new Error(`Vision error (${r.status}): ${t.slice(0, 200)}`);
     }
     const j = await r.json();
-    return { analysis: j.choices?.[0]?.message?.content ?? "" };
+    const analysis = j.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || "").join("") ?? "";
+    return { analysis };
   });
 
-/* ---------------- Gemini: refine the user prompt ---------------- */
+/* ---------------- Refine the user prompt (BYOK) ---------------- */
 
 export const refinePrompt = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ prompt: z.string().min(1).max(4000) }))
+  .inputValidator(z.object({ prompt: z.string().min(1).max(4000), byok: byokSchema }))
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Improve the user's website-build prompt. Make it more specific: add details about color palette, layout, animations, image keywords, and content sections - but preserve the original intent. Output ONLY the refined prompt as plain text, no preface, no quotes, no markdown.",
-          },
-          { role: "user", content: data.prompt },
-        ],
-      }),
+    const r = await callProvider(data.byok.provider, {
+      apiKey: data.byok.apiKey,
+      model: data.byok.model,
+      system: "Improve the user's website-build prompt. Make it more specific: add details about color palette, layout, animations, image keywords, and content sections - but preserve the original intent. Output ONLY the refined prompt as plain text, no preface, no quotes, no markdown.",
+      user: data.prompt,
     });
-    if (!r.ok) {
-      const t = await r.text().catch(() => "");
-      throw new Error(`Refine error (${r.status}): ${t.slice(0, 200)}`);
-    }
-    const j = await r.json();
-    return { refined: (j.choices?.[0]?.message?.content ?? data.prompt).trim() };
+    return { refined: (r.text || data.prompt).trim() };
   });
+

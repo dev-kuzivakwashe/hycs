@@ -101,8 +101,9 @@ export const planRequest = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey && !data.byok) throw new Error("LOVABLE_API_KEY not configured");
+    if (!data.byok) {
+      throw new Error("No AI key configured. Open Settings, add a provider key (Groq, OpenAI, Gemini, or Claude), and assign it to the Planner agent.");
+    }
 
     const ctx: string[] = [];
     ctx.push(`MODE: ${data.mode}`);
@@ -115,95 +116,18 @@ export const planRequest = createServerFn({ method: "POST" })
     }
     if (data.standardPrompt) ctx.push(`STANDARD_STYLE_PROMPT:\n${data.standardPrompt}`);
 
-    const model = data.byok?.model || data.plannerModel || "google/gemini-2.5-flash-lite";
+    const model = data.byok.model;
+    const system = `${PLANNER_SYSTEM}\n\n${ctx.join("\n")}`;
+    const user = data.prompt;
 
-    let content = "";
-    if (data.byok) {
-      const system = `${PLANNER_SYSTEM}\n\n${ctx.join("\n")}`;
-      const user = data.prompt;
-      
-      // Log payload sizes to console
-      const systemBytes = new Blob([system]).size;
-      const userBytes = new Blob([user]).size;
-      const totalBytes = systemBytes + userBytes;
-      console.log(`[BYOK Planner] Payload sizes:`);
-      console.log(`  - System message: ${systemBytes} bytes`);
-      console.log(`  - User message: ${userBytes} bytes`);
-      console.log(`  - Total (before JSON wrapping): ${totalBytes} bytes`);
-      console.log(`  - Model: ${data.byok.model}`);
-
-      const r = await callProvider(data.byok.provider, {
-        apiKey: data.byok.apiKey,
-        model: data.byok.model,
-        system,
-        user,
-        jsonMode: true,
-      });
-      content = r.text;
-    } else {
-      const requestBody = {
-        model,
-        temperature: 0.2,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: PLANNER_SYSTEM },
-          { role: "system", content: ctx.join("\n") },
-          { role: "user", content: data.prompt },
-        ],
-      };
-      
-      const requestBodyJson = JSON.stringify(requestBody);
-      const requestBodyBytes = new Blob([requestBodyJson]).size;
-      
-      console.log(`[Lovable Planner] First attempt payload size:`);
-      console.log(`  - Total request body: ${requestBodyBytes} bytes`);
-      console.log(`  - PLANNER_SYSTEM: ${new Blob([PLANNER_SYSTEM]).size} bytes`);
-      console.log(`  - Context: ${new Blob([ctx.join("\n")]).size} bytes`);
-      console.log(`  - Prompt: ${new Blob([data.prompt]).size} bytes`);
-      console.log(`  - Model: ${model}`);
-
-      let res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: requestBodyJson,
-      });
-      
-      if (!res.ok && res.status === 400) {
-        const retryBody = {
-          model,
-          temperature: 0.2,
-          max_tokens: 4096,
-          messages: [
-            { role: "system", content: `${PLANNER_SYSTEM}\n\nReturn only raw JSON. Do not use markdown fences.` },
-            { role: "system", content: ctx.join("\n") },
-            { role: "user", content: data.prompt },
-          ],
-        };
-        
-        const retryBodyJson = JSON.stringify(retryBody);
-        const retryBodyBytes = new Blob([retryBodyJson]).size;
-        
-        console.log(`[Lovable Planner] Retry (400 fallback) payload size:`);
-        console.log(`  - Total request body: ${retryBodyBytes} bytes`);
-        
-        res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: retryBodyJson,
-        });
-      }
-      
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        if (res.status === 429) throw new Error("Planner rate-limited. Try again in a moment.");
-        if (res.status === 402) throw new Error("AI credits exhausted.");
-        if (res.status === 413) throw new Error(`Planner request too large (${requestBodyBytes} bytes). Reduce context or disable standard prompt.`);
-        throw new Error(`Planner error (${res.status}): ${text}`);
-      }
-      const json = await res.json();
-      content = json.choices?.[0]?.message?.content ?? "";
-    }
+    const r = await callProvider(data.byok.provider, {
+      apiKey: data.byok.apiKey,
+      model,
+      system,
+      user,
+      jsonMode: true,
+    });
+    const content = r.text;
 
     const match = content.match(/```json\s*([\s\S]*?)```/i) ?? content.match(/```\s*([\s\S]*?)```/i);
     const raw = match ? match[1].trim() : content.trim();
@@ -221,6 +145,7 @@ export const planRequest = createServerFn({ method: "POST" })
     }
     return { plan: result.data, model };
   });
+
 
 /** Build the final spec string the Developer Agent receives. */
 export function planToFinalSpec(plan: Plan, originalPrompt: string): string {
