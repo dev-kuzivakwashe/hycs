@@ -13,7 +13,7 @@ import xml from "highlight.js/lib/languages/xml";
 import css from "highlight.js/lib/languages/css";
 import javascript from "highlight.js/lib/languages/javascript";
 import { Logo } from "@/components/logo";
-import { AuthModal } from "@/components/auth-modal";
+
 import { AnimatedTitle } from "@/components/animated-title";
 import { Markdown } from "@/components/markdown";
 import { useTypewriter } from "@/lib/typewriter";
