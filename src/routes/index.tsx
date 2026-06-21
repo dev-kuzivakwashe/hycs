@@ -13,7 +13,7 @@ import xml from "highlight.js/lib/languages/xml";
 import css from "highlight.js/lib/languages/css";
 import javascript from "highlight.js/lib/languages/javascript";
 import { Logo } from "@/components/logo";
-import { AuthModal } from "@/components/auth-modal";
+
 import { AnimatedTitle } from "@/components/animated-title";
 import { Markdown } from "@/components/markdown";
 import { useTypewriter } from "@/lib/typewriter";
@@ -27,7 +27,7 @@ import {
 } from "@/lib/likeable-store";
 import { useSettings } from "@/lib/likeable-settings";
 import { useByok, resolveAgent } from "@/lib/byok-store";
-import { useAuth } from "@/lib/use-auth";
+import { useByoSupabase } from "@/lib/byo-supabase";
 import { PlanCard } from "@/components/plan-card";
 import { GithubDeployModal } from "@/components/github-deploy-modal";
 import JSZip from "jszip";
@@ -86,7 +86,7 @@ function Index() {
   const { project, update } = useLikeableStore();
   const { settings } = useSettings();
   const { state: byokState } = useByok();
-  const { user } = useAuth();
+  const { configured: byoSupaConfigured } = useByoSupabase();
 
   const savedProjects = useSavedProjects();
   const messages = project.messages;
@@ -107,7 +107,7 @@ function Index() {
   const [analysisModal, setAnalysisModal] = useState<{ text: string } | null>(null);
   const [pendingUserImage, setPendingUserImage] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
+  // (BYO-Supabase replaces the old built-in auth modal; sign-in lives in /settings.)
   const [githubOpen, setGithubOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -391,15 +391,14 @@ function Index() {
     return (
       <div className="min-h-screen relative overflow-hidden flex flex-col">
         <Toaster theme="dark" position="top-center" />
-        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
         <div className="absolute inset-x-0 bottom-0 h-[55vh] glow-bg pointer-events-none" />
         <header className="relative z-10 flex items-center justify-between px-5 py-4">
           <div className="flex items-center gap-2"><Logo className="w-7 h-7" /><span className="text-xl font-bold">HYCS</span></div>
           <div className="flex items-center gap-2">
-            {!user && (
-              <button onClick={() => setAuthOpen(true)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border hover:bg-accent">
-                <LogIn className="w-3.5 h-3.5" /> Sign in
-              </button>
+            {!byoSupaConfigured && (
+              <Link to="/settings" className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border hover:bg-accent" title="Bring your own Supabase to sign in and sync">
+                <LogIn className="w-3.5 h-3.5" /> Connect Supabase
+              </Link>
             )}
             <Link to="/settings" aria-label="Settings" className="p-2 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground"><Settings className="w-5 h-5" /></Link>
           </div>
@@ -662,7 +661,7 @@ function Index() {
   return (
     <div className="h-screen flex flex-col">
       <Toaster theme="dark" position="top-center" />
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      
       <GithubDeployModal open={githubOpen} onClose={() => setGithubOpen(false)} project={project} />
 
       <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
@@ -699,10 +698,10 @@ function Index() {
           <button onClick={deployNetlify} disabled={!hasAnyPage} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg brand-bg text-white disabled:opacity-40">
             <Rocket className="w-3.5 h-3.5" /> Deploy
           </button>
-          {!user && (
-            <button onClick={() => setAuthOpen(true)} className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border hover:bg-accent">
+          {!byoSupaConfigured && (
+            <Link to="/settings" title="Bring your own Supabase to sign in and sync" className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border hover:bg-accent">
               <LogIn className="w-3.5 h-3.5" />
-            </button>
+            </Link>
           )}
           <Link to="/settings" aria-label="Settings" className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground">
             <Settings className="w-4 h-4" />
