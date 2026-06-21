@@ -391,15 +391,14 @@ function Index() {
     return (
       <div className="min-h-screen relative overflow-hidden flex flex-col">
         <Toaster theme="dark" position="top-center" />
-        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
         <div className="absolute inset-x-0 bottom-0 h-[55vh] glow-bg pointer-events-none" />
         <header className="relative z-10 flex items-center justify-between px-5 py-4">
           <div className="flex items-center gap-2"><Logo className="w-7 h-7" /><span className="text-xl font-bold">HYCS</span></div>
           <div className="flex items-center gap-2">
-            {!user && (
-              <button onClick={() => setAuthOpen(true)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border hover:bg-accent">
-                <LogIn className="w-3.5 h-3.5" /> Sign in
-              </button>
+            {!byoSupaConfigured && (
+              <Link to="/settings" className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border hover:bg-accent" title="Bring your own Supabase to sign in and sync">
+                <LogIn className="w-3.5 h-3.5" /> Connect Supabase
+              </Link>
             )}
             <Link to="/settings" aria-label="Settings" className="p-2 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground"><Settings className="w-5 h-5" /></Link>
           </div>
