@@ -86,7 +86,7 @@ function Index() {
   const { project, update } = useLikeableStore();
   const { settings } = useSettings();
   const { state: byokState } = useByok();
-  const { user } = useAuth();
+  const { configured: byoSupaConfigured } = useByoSupabase();
 
   const savedProjects = useSavedProjects();
   const messages = project.messages;
