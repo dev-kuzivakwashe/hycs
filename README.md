@@ -48,9 +48,9 @@ HYCS itself is built with:
 - Tailwind CSS v4
 - shadcn/ui primitives
 - Lovable Cloud runtime on Cloudflare Workers
-- Lovable AI Gateway as the default model router
 - LocalStorage persistence for projects, settings and BYOK
-- Optional Supabase Auth for sign-in
+- Bring-Your-Own AI keys (Groq / OpenAI / Gemini / Claude) — no default gateway
+- Bring-Your-Own Supabase project for optional sign-in and cross-device sync
 
 The stack describes the HYCS platform. It says nothing about what HYCS generates - generated sites are framework-free by contract.
 
