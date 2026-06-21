@@ -27,7 +27,7 @@ import {
 } from "@/lib/likeable-store";
 import { useSettings } from "@/lib/likeable-settings";
 import { useByok, resolveAgent } from "@/lib/byok-store";
-import { useAuth } from "@/lib/use-auth";
+import { useByoSupabase } from "@/lib/byo-supabase";
 import { PlanCard } from "@/components/plan-card";
 import { GithubDeployModal } from "@/components/github-deploy-modal";
 import JSZip from "jszip";
