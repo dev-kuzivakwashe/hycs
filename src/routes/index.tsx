@@ -107,7 +107,7 @@ function Index() {
   const [analysisModal, setAnalysisModal] = useState<{ text: string } | null>(null);
   const [pendingUserImage, setPendingUserImage] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
+  // (BYO-Supabase replaces the old built-in auth modal; sign-in lives in /settings.)
   const [githubOpen, setGithubOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
