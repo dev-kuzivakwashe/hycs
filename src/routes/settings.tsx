@@ -32,8 +32,6 @@ function SettingsPage() {
   const { available, installed, promptInstall } = useInstallPrompt();
   const { reset } = useLikeableStore();
   const { settings, update } = useSettings();
-  const { user, signOut } = useAuth();
-  const [authOpen, setAuthOpen] = useState(false);
 
   async function handleInstall() {
     const r = await promptInstall();
@@ -47,7 +45,6 @@ function SettingsPage() {
   return (
     <div className="min-h-screen">
       <Toaster theme="dark" position="top-center" />
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
       <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-background/95 backdrop-blur z-10">
         <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" /> Back
@@ -76,29 +73,8 @@ function SettingsPage() {
           </Link>
         </fieldset>
 
-        {/* Account */}
-        <fieldset className="bg-card border rounded-2xl p-5">
-          <legend className="px-2 text-xs uppercase tracking-wider text-muted-foreground">Account</legend>
-          {user ? (
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm min-w-0">
-                <div className="font-medium truncate">{user.email}</div>
-                <div className="text-xs text-muted-foreground">Signed in</div>
-              </div>
-              <button onClick={() => { signOut(); toast.success("Signed out"); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg hover:bg-accent">
-                <LogOut className="w-3.5 h-3.5" /> Sign out
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => setAuthOpen(true)} className="w-full brand-bg text-white py-2 rounded-lg text-sm font-medium">
-              Sign in or create account
-            </button>
-          )}
-          <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
-            HYCS is free. We do not save your generated projects to a database, only your account, settings and keys. You can build without signing in at all.
-          </p>
-        </fieldset>
+        {/* Bring-Your-Own Supabase (replaces the old built-in Account section) */}
+        <ByoSupabasePanel />
 
         {/* Install */}
         <fieldset className="bg-card border rounded-2xl p-5">
