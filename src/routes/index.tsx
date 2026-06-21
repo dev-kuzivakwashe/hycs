@@ -698,10 +698,10 @@ function Index() {
           <button onClick={deployNetlify} disabled={!hasAnyPage} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg brand-bg text-white disabled:opacity-40">
             <Rocket className="w-3.5 h-3.5" /> Deploy
           </button>
-          {!user && (
-            <button onClick={() => setAuthOpen(true)} className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border hover:bg-accent">
+          {!byoSupaConfigured && (
+            <Link to="/settings" title="Bring your own Supabase to sign in and sync" className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border hover:bg-accent">
               <LogIn className="w-3.5 h-3.5" />
-            </button>
+            </Link>
           )}
           <Link to="/settings" aria-label="Settings" className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground">
             <Settings className="w-4 h-4" />
