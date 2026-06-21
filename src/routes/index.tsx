@@ -661,7 +661,7 @@ function Index() {
   return (
     <div className="h-screen flex flex-col">
       <Toaster theme="dark" position="top-center" />
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      
       <GithubDeployModal open={githubOpen} onClose={() => setGithubOpen(false)} project={project} />
 
       <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
