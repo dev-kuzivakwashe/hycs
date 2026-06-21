@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import {
   ArrowLeft, Download, Plug, BookOpen, Trash2, Check, Smartphone,
-  Github, LogOut, Cpu, FileText, ExternalLink,
+  Github, Cpu, FileText, ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,11 +9,10 @@ import { Logo } from "@/components/logo";
 import { useInstallPrompt } from "@/lib/install-prompt";
 import { useLikeableStore } from "@/lib/likeable-store";
 import { useSettings, MODEL_OPTIONS, PLANNER_MODEL_OPTIONS } from "@/lib/likeable-settings";
-import { useAuth } from "@/lib/use-auth";
-import { AuthModal } from "@/components/auth-modal";
 import { CustomSelect } from "@/components/custom-select";
 import { ToggleSwitch } from "@/components/toggle-switch";
 import { ByokPanel } from "@/components/byok-panel";
+import { ByoSupabasePanel } from "@/components/byo-supabase-panel";
 
 
 export const Route = createFileRoute("/settings")({
