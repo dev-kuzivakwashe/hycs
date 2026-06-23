@@ -26,7 +26,8 @@ import {
   loadSavedProject, deleteSavedProject, type Message, type Project, type SavedProjectMeta,
 } from "@/lib/likeable-store";
 import { useSettings } from "@/lib/likeable-settings";
-import { useByok, resolveAgent } from "@/lib/byok-store";
+import { useByok, resolveAgent, readByok } from "@/lib/byok-store";
+import { ApiKeyModal } from "@/components/api-key-modal";
 import { useByoSupabase } from "@/lib/byo-supabase";
 import { PlanCard } from "@/components/plan-card";
 import { GithubDeployModal } from "@/components/github-deploy-modal";
@@ -85,7 +86,7 @@ function Index() {
   const plan = useServerFn(planRequest);
   const { project, update } = useLikeableStore();
   const { settings } = useSettings();
-  const { state: byokState } = useByok();
+  useByok(); // subscribe so UI re-renders when keys change
   const { configured: byoSupaConfigured } = useByoSupabase();
 
   const savedProjects = useSavedProjects();
@@ -109,6 +110,7 @@ function Index() {
   const [fullscreen, setFullscreen] = useState(false);
   // (BYO-Supabase replaces the old built-in auth modal; sign-in lives in /settings.)
   const [githubOpen, setGithubOpen] = useState(false);
+  const [keyModal, setKeyModal] = useState<{ prompt: string } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -145,6 +147,14 @@ function Index() {
   async function send(prompt: string) {
     const text = prompt.trim();
     if (!text || loading) return;
+
+    // Gate: one key powers planning AND coding. If none, open the inline modal.
+    const fresh = readByok();
+    if (!resolveAgent(fresh, "developer")) {
+      setKeyModal({ prompt: text });
+      return;
+    }
+
     setInput("");
     const mode: "first" | "new-page" | "edit" =
       !hasAnyPage ? "first" : actionMode === "new" ? "new-page" : "edit";
@@ -160,7 +170,7 @@ function Index() {
     setLoading(true);
     try {
       const existingPages = Object.entries(pages).map(([slug, p]) => ({ slug, title: p.title }));
-      const plannerBy = resolveAgent(byokState, "planner");
+      const plannerBy = resolveAgent(readByok(), "planner");
       const res = await plan({
         data: {
           prompt: text,
@@ -223,7 +233,7 @@ function Index() {
         : baseMessages;
       const existingPages = Object.entries(pages).map(([slug, p]) => ({ slug, title: p.title }));
 
-      const developerBy = resolveAgent(byokState, "developer");
+      const developerBy = resolveAgent(readByok(), "developer");
       const res = await generate({
         data: {
           messages: recent.map((m) => ({ role: m.role, content: m.content })),
@@ -306,7 +316,7 @@ function Index() {
 
   async function analyzeStyle() {
     if (!imageModal) return;
-    const visionBy = resolveAgent(byokState, "vision") ?? resolveAgent(byokState, "developer");
+    const visionBy = resolveAgent(readByok(), "vision") ?? resolveAgent(readByok(), "developer");
     if (!visionBy || visionBy.provider !== "gemini") {
       toast.error("Image analysis needs a Gemini key. Add one in Settings and assign it to the Vision agent.");
       return;
@@ -331,7 +341,7 @@ function Index() {
 
   async function doRefine() {
     if (!input.trim()) { toast.info("Type something first."); return; }
-    const refineBy = resolveAgent(byokState, "planner") ?? resolveAgent(byokState, "developer");
+    const refineBy = resolveAgent(readByok(), "planner") ?? resolveAgent(readByok(), "developer");
     if (!refineBy) {
       toast.error("Add an AI provider key in Settings to refine prompts.");
       return;
@@ -391,6 +401,16 @@ function Index() {
     return (
       <div className="min-h-screen relative overflow-hidden flex flex-col">
         <Toaster theme="dark" position="top-center" />
+        <ApiKeyModal
+          open={!!keyModal}
+          pendingPrompt={keyModal?.prompt}
+          onClose={() => setKeyModal(null)}
+          onReady={() => {
+            const p = keyModal?.prompt;
+            setKeyModal(null);
+            if (p) setTimeout(() => send(p), 0);
+          }}
+        />
         <div className="absolute inset-x-0 bottom-0 h-[55vh] glow-bg pointer-events-none" />
         <header className="relative z-10 flex items-center justify-between px-5 py-4">
           <div className="flex items-center gap-2"><Logo className="w-7 h-7" /><span className="text-xl font-bold">HYCS</span></div>
@@ -661,6 +681,16 @@ function Index() {
   return (
     <div className="h-screen flex flex-col">
       <Toaster theme="dark" position="top-center" />
+      <ApiKeyModal
+        open={!!keyModal}
+        pendingPrompt={keyModal?.prompt}
+        onClose={() => setKeyModal(null)}
+        onReady={() => {
+          const p = keyModal?.prompt;
+          setKeyModal(null);
+          if (p) setTimeout(() => send(p), 0);
+        }}
+      />
       
       <GithubDeployModal open={githubOpen} onClose={() => setGithubOpen(false)} project={project} />
 

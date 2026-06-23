@@ -162,6 +162,47 @@ export function maskKey(key: string): string {
   return `${head}${"•".repeat(8)}${tail}`;
 }
 
+/** Detect an AI provider from the shape of a pasted API key. */
+export function detectProvider(rawKey: string): ProviderId | null {
+  const k = rawKey.trim();
+  if (!k) return null;
+  if (/^sk-ant-/i.test(k)) return "claude";
+  if (/^gsk_/i.test(k)) return "groq";
+  if (/^AIza[0-9A-Za-z_-]{10,}/.test(k)) return "gemini";
+  if (/^sk-/i.test(k)) return "openai";
+  return null;
+}
+
+/**
+ * Save a single key and wire it to every agent role (planner, developer, vision)
+ * using each provider's recommended default model. Powers the inline
+ * "API Key Not Configured" modal so one key gets the user going end-to-end.
+ */
+export function applySingleKey(rawKey: string, providerHint?: ProviderId): { provider: ProviderId } | null {
+  const key = rawKey.trim();
+  if (!key) return null;
+  const provider = providerHint || detectProvider(key) || "groq";
+  const def = PROVIDERS[provider];
+  const cur = read();
+  const next: ByokState = {
+    ...cur,
+    enabled: true,
+    keys: {
+      ...cur.keys,
+      [provider]: { key, status: "connected", lastChecked: Date.now() },
+    },
+    assignments: {
+      planner: { provider, model: def.defaultModels[0]?.id || cur.assignments.planner.model },
+      developer: { provider, model: def.defaultModels[0]?.id || cur.assignments.developer.model },
+      vision: def.visionModels?.length
+        ? { provider, model: def.visionModels[0] }
+        : cur.assignments.vision,
+    },
+  };
+  write(next);
+  return { provider };
+}
+
 /** Return the full model list for a provider (defaults + user custom). */
 export function modelsForProvider(state: ByokState, p: ProviderId): { id: string; label: string; custom: boolean }[] {
   const def = PROVIDERS[p].defaultModels.map((m) => ({ ...m, custom: false }));
