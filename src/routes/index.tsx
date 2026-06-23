@@ -224,7 +224,12 @@ function Index() {
   async function approvePlan(messageIndex: number, finalPlan: Plan) {
     const msg = messages[messageIndex];
     if (!msg?.originalPrompt) return;
-    const finalSpec = planToFinalSpec(finalPlan, msg.originalPrompt);
+    // Use compact spec when the Developer agent is Groq to stay under its tight
+    // token-per-minute ceiling. Other providers get the full detailed spec.
+    const devAgent = resolveAgent(readByok(), "developer");
+    const finalSpec = devAgent?.provider === "groq"
+      ? planToCompactSpec(finalPlan, msg.originalPrompt)
+      : planToFinalSpec(finalPlan, msg.originalPrompt);
     update((p) => ({
       ...p,
       messages: p.messages.map((m, i) => i === messageIndex ? { ...m, plan: finalPlan, planStatus: "approved" } : m),
