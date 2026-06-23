@@ -110,6 +110,7 @@ function Index() {
   const [fullscreen, setFullscreen] = useState(false);
   // (BYO-Supabase replaces the old built-in auth modal; sign-in lives in /settings.)
   const [githubOpen, setGithubOpen] = useState(false);
+  const [keyModal, setKeyModal] = useState<{ prompt: string } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
