@@ -401,6 +401,16 @@ function Index() {
     return (
       <div className="min-h-screen relative overflow-hidden flex flex-col">
         <Toaster theme="dark" position="top-center" />
+        <ApiKeyModal
+          open={!!keyModal}
+          pendingPrompt={keyModal?.prompt}
+          onClose={() => setKeyModal(null)}
+          onReady={() => {
+            const p = keyModal?.prompt;
+            setKeyModal(null);
+            if (p) setTimeout(() => send(p), 0);
+          }}
+        />
         <div className="absolute inset-x-0 bottom-0 h-[55vh] glow-bg pointer-events-none" />
         <header className="relative z-10 flex items-center justify-between px-5 py-4">
           <div className="flex items-center gap-2"><Logo className="w-7 h-7" /><span className="text-xl font-bold">HYCS</span></div>
