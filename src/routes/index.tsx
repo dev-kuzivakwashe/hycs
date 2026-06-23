@@ -26,7 +26,8 @@ import {
   loadSavedProject, deleteSavedProject, type Message, type Project, type SavedProjectMeta,
 } from "@/lib/likeable-store";
 import { useSettings } from "@/lib/likeable-settings";
-import { useByok, resolveAgent } from "@/lib/byok-store";
+import { useByok, resolveAgent, readByok } from "@/lib/byok-store";
+import { ApiKeyModal } from "@/components/api-key-modal";
 import { useByoSupabase } from "@/lib/byo-supabase";
 import { PlanCard } from "@/components/plan-card";
 import { GithubDeployModal } from "@/components/github-deploy-modal";
