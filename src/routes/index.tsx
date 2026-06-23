@@ -147,6 +147,14 @@ function Index() {
   async function send(prompt: string) {
     const text = prompt.trim();
     if (!text || loading) return;
+
+    // Gate: one key powers planning AND coding. If none, open the inline modal.
+    const fresh = readByok();
+    if (!resolveAgent(fresh, "developer")) {
+      setKeyModal({ prompt: text });
+      return;
+    }
+
     setInput("");
     const mode: "first" | "new-page" | "edit" =
       !hasAnyPage ? "first" : actionMode === "new" ? "new-page" : "edit";
