@@ -170,7 +170,7 @@ function Index() {
     setLoading(true);
     try {
       const existingPages = Object.entries(pages).map(([slug, p]) => ({ slug, title: p.title }));
-      const plannerBy = resolveAgent(byokState, "planner");
+      const plannerBy = resolveAgent(readByok(), "planner");
       const res = await plan({
         data: {
           prompt: text,
@@ -233,7 +233,7 @@ function Index() {
         : baseMessages;
       const existingPages = Object.entries(pages).map(([slug, p]) => ({ slug, title: p.title }));
 
-      const developerBy = resolveAgent(byokState, "developer");
+      const developerBy = resolveAgent(readByok(), "developer");
       const res = await generate({
         data: {
           messages: recent.map((m) => ({ role: m.role, content: m.content })),
@@ -316,7 +316,7 @@ function Index() {
 
   async function analyzeStyle() {
     if (!imageModal) return;
-    const visionBy = resolveAgent(byokState, "vision") ?? resolveAgent(byokState, "developer");
+    const visionBy = resolveAgent(readByok(), "vision") ?? resolveAgent(readByok(), "developer");
     if (!visionBy || visionBy.provider !== "gemini") {
       toast.error("Image analysis needs a Gemini key. Add one in Settings and assign it to the Vision agent.");
       return;
@@ -341,7 +341,7 @@ function Index() {
 
   async function doRefine() {
     if (!input.trim()) { toast.info("Type something first."); return; }
-    const refineBy = resolveAgent(byokState, "planner") ?? resolveAgent(byokState, "developer");
+    const refineBy = resolveAgent(readByok(), "planner") ?? resolveAgent(readByok(), "developer");
     if (!refineBy) {
       toast.error("Add an AI provider key in Settings to refine prompts.");
       return;
