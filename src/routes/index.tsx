@@ -681,6 +681,16 @@ function Index() {
   return (
     <div className="h-screen flex flex-col">
       <Toaster theme="dark" position="top-center" />
+      <ApiKeyModal
+        open={!!keyModal}
+        pendingPrompt={keyModal?.prompt}
+        onClose={() => setKeyModal(null)}
+        onReady={() => {
+          const p = keyModal?.prompt;
+          setKeyModal(null);
+          if (p) setTimeout(() => send(p), 0);
+        }}
+      />
       
       <GithubDeployModal open={githubOpen} onClose={() => setGithubOpen(false)} project={project} />
 
