@@ -86,7 +86,7 @@ function Index() {
   const plan = useServerFn(planRequest);
   const { project, update } = useLikeableStore();
   const { settings } = useSettings();
-  const { state: byokState } = useByok();
+  useByok(); // subscribe so UI re-renders when keys change
   const { configured: byoSupaConfigured } = useByoSupabase();
 
   const savedProjects = useSavedProjects();
