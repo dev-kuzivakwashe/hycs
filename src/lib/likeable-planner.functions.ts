@@ -177,3 +177,25 @@ export function planToFinalSpec(plan: Plan, originalPrompt: string): string {
     `Time estimate: ${plan.timeEstimate}`,
   ].join("\n");
 }
+
+/**
+ * Token-lean variant of planToFinalSpec for providers with tight context /
+ * output limits (e.g. Groq). Drops verbose "how / where / edge cases" prose
+ * and keeps just the implementation checklist + resolved answers.
+ */
+export function planToCompactSpec(plan: Plan, originalPrompt: string): string {
+  const items = plan.items.map((it, i) => `  ${i + 1}. ${it.what}`).join("\n");
+  const qa = plan.openQuestions.length
+    ? plan.openQuestions.map((q) => `  - ${q.question} -> ${q.defaultAnswer}`).join("\n")
+    : "";
+  const cleanup = plan.mockCleanup.length ? `\nDelete: ${plan.mockCleanup.join(", ")}` : "";
+  return [
+    `APPROVED PLAN (compact). Implement exactly. Do not ask questions.`,
+    `Request: ${originalPrompt}`,
+    `Name: ${plan.name}`,
+    `Items:`,
+    items,
+    qa ? `Answers:\n${qa}` : "",
+    cleanup,
+  ].filter(Boolean).join("\n");
+}
