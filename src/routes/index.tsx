@@ -19,7 +19,7 @@ import { Markdown } from "@/components/markdown";
 import { useTypewriter } from "@/lib/typewriter";
 import { generateSite } from "@/lib/likeable.functions";
 import { analyzeImage, refinePrompt } from "@/lib/likeable-helpers.functions";
-import { planRequest, planToFinalSpec, type Plan } from "@/lib/likeable-planner.functions";
+import { planRequest, planToFinalSpec, planToCompactSpec, type Plan } from "@/lib/likeable-planner.functions";
 import { fetchProjectImage } from "@/lib/fetch-image.functions";
 import {
   useLikeableStore, wrapPage, useSavedProjects, archiveCurrentProject,
