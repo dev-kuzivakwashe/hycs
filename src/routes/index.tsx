@@ -19,7 +19,7 @@ import { Markdown } from "@/components/markdown";
 import { useTypewriter } from "@/lib/typewriter";
 import { generateSite } from "@/lib/likeable.functions";
 import { analyzeImage, refinePrompt } from "@/lib/likeable-helpers.functions";
-import { planRequest, planToFinalSpec, type Plan } from "@/lib/likeable-planner.functions";
+import { planRequest, planToFinalSpec, planToCompactSpec, type Plan } from "@/lib/likeable-planner.functions";
 import { fetchProjectImage } from "@/lib/fetch-image.functions";
 import {
   useLikeableStore, wrapPage, useSavedProjects, archiveCurrentProject,
@@ -162,7 +162,24 @@ function Index() {
     const userMsg: Message = { role: "user", content: text };
     update((p) => ({ ...p, messages: [...p.messages, userMsg] }));
 
-    if (!settings.plannerEnabled) {
+    // Groq has tight per-minute token limits (often ~6-8K output tokens).
+    // Running planner -> developer back-to-back blows past that because the
+    // approved plan gets injected as an extra prompt on top of an already
+    // large system prompt. When the Developer agent is on Groq, skip the
+    // planner entirely and let the developer answer from the raw user prompt.
+    const devAgent = resolveAgent(fresh, "developer");
+    const groqDeveloper = devAgent?.provider === "groq";
+
+    if (!settings.plannerEnabled || groqDeveloper) {
+      if (groqDeveloper && settings.plannerEnabled) {
+        update((p) => ({
+          ...p,
+          messages: [...p.messages, {
+            role: "assistant",
+            content: "Skipping planner: Groq's rate limits don't leave room for plan + build in one go. Building straight from your prompt. Switch the Developer agent to a higher-limit provider in Settings to re-enable planning.",
+          }],
+        }));
+      }
       await runDeveloper(text, null, mode);
       return;
     }
@@ -207,7 +224,12 @@ function Index() {
   async function approvePlan(messageIndex: number, finalPlan: Plan) {
     const msg = messages[messageIndex];
     if (!msg?.originalPrompt) return;
-    const finalSpec = planToFinalSpec(finalPlan, msg.originalPrompt);
+    // Use compact spec when the Developer agent is Groq to stay under its tight
+    // token-per-minute ceiling. Other providers get the full detailed spec.
+    const devAgent = resolveAgent(readByok(), "developer");
+    const finalSpec = devAgent?.provider === "groq"
+      ? planToCompactSpec(finalPlan, msg.originalPrompt)
+      : planToFinalSpec(finalPlan, msg.originalPrompt);
     update((p) => ({
       ...p,
       messages: p.messages.map((m, i) => i === messageIndex ? { ...m, plan: finalPlan, planStatus: "approved" } : m),
