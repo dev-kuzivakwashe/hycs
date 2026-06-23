@@ -162,7 +162,24 @@ function Index() {
     const userMsg: Message = { role: "user", content: text };
     update((p) => ({ ...p, messages: [...p.messages, userMsg] }));
 
-    if (!settings.plannerEnabled) {
+    // Groq has tight per-minute token limits (often ~6-8K output tokens).
+    // Running planner -> developer back-to-back blows past that because the
+    // approved plan gets injected as an extra prompt on top of an already
+    // large system prompt. When the Developer agent is on Groq, skip the
+    // planner entirely and let the developer answer from the raw user prompt.
+    const devAgent = resolveAgent(fresh, "developer");
+    const groqDeveloper = devAgent?.provider === "groq";
+
+    if (!settings.plannerEnabled || groqDeveloper) {
+      if (groqDeveloper && settings.plannerEnabled) {
+        update((p) => ({
+          ...p,
+          messages: [...p.messages, {
+            role: "assistant",
+            content: "Skipping planner: Groq's rate limits don't leave room for plan + build in one go. Building straight from your prompt. Switch the Developer agent to a higher-limit provider in Settings to re-enable planning.",
+          }],
+        }));
+      }
       await runDeveloper(text, null, mode);
       return;
     }
